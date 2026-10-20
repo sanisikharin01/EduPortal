@@ -187,9 +187,11 @@
       { ID: 'EV001', CourseID: 'C101', TeacherID: 'T101', TeacherName: 'ครูสมศักดิ์ สุขใจ', StudentID: '04501', Clarity: '5', Engagement: '5', Materials: '4', Assessment: '5', Counseling: '5', OverallScore: '4.8', Comment: 'ครูสอนสนุกและเข้าใจง่ายมากครับ', SubmittedAt: '2026-05-18' }
     ];
 
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwyVi8My5UYBC6azaOoBsk-uS9PmWd6gmAU-A0CADk2HlEHa3HIWJyas4vGc8Knb2hb/exec';
+
     function EduPortalApp() {
-      // Configuration & Gas URL (Persisted in localStorage)
-      const [gasUrl, setGasUrl] = useState(() => localStorage.getItem('eduportal_gas_url') || '');
+      // Configuration & Gas URL (Persisted in localStorage with your default URL)
+      const [gasUrl, setGasUrl] = useState(() => localStorage.getItem('eduportal_gas_url') || DEFAULT_GAS_URL);
       const [isSyncing, setIsSyncing] = useState(false);
 
       // Current Logged In User State: { role: 'admin'|'teacher'|'student', user: {...} }
