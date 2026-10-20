@@ -97,7 +97,9 @@
         Users: <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75" />,
         Key: <path d="m21 2-2 2m-1.5 1.5L16 7l-2 2-2-2-2 2-2-2-4 4a5 5 0 1 0 7 7l6.5-6.5" />,
         FileSpreadsheet: <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M8 13h2 M14 13h2 M8 17h2 M14 17h2" />,
-        Edit: <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        Edit: <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />,
+        Link: <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71 M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />,
+        Eye: <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />
       };
 
       return (
@@ -230,6 +232,39 @@
       useEffect(() => {
         localStorage.setItem('eduportal_db_cache', JSON.stringify(db));
       }, [db]);
+
+      // Auto-pull latest data from Google Sheets on initial load
+      useEffect(() => {
+        const autoFetch = async () => {
+          if (!gasUrl || !gasUrl.startsWith('https://script.google.com/')) return;
+          setIsSyncing(true);
+          try {
+            const response = await fetch(gasUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({ action: 'pullAll', payload: {} })
+            });
+            const data = await response.json();
+            if (data.status === 'success' && data.result && data.result.data) {
+              const remote = data.result.data;
+              setDb(prev => {
+                const next = { ...prev };
+                Object.keys(remote).forEach(k => {
+                  if (Array.isArray(remote[k]) && remote[k].length > 0) {
+                    next[k] = remote[k];
+                  }
+                });
+                return next;
+              });
+            }
+          } catch (err) {
+            console.warn('Auto-sync skipped (Offline or uninitialized sheets):', err);
+          } finally {
+            setIsSyncing(false);
+          }
+        };
+        autoFetch();
+      }, [gasUrl]);
 
       // Save user session
       useEffect(() => {
@@ -1001,57 +1036,98 @@
     }
 
     function CoursesView({ courses, allTeachers, currentUser, selectedCourseId, onSelectCourse, onSaveCourse, onDeleteCourse }) {
-      const handleCreateCourse = async () => {
+      const handleOpenCourseModal = async (existingCourse = null) => {
+        const isEdit = !!existingCourse;
+        const teacherOptions = allTeachers.map(t => 
+          `<option value="${t.TeacherID}" ${existingCourse?.TeacherID === t.TeacherID ? 'selected' : ''}>${t.Name} (${t.TeacherID})</option>`
+        ).join('');
+
+        const coverOptions = [
+          { label: 'น้ำเงิน-คราม (Indigo)', val: 'from-blue-600 to-indigo-700' },
+          { label: 'เขียว-มรกต (Emerald)', val: 'from-emerald-600 to-teal-700' },
+          { label: 'ม่วง-ชมพู (Purple)', val: 'from-purple-600 to-pink-600' },
+          { label: 'ส้ม-แดง (Amber/Rose)', val: 'from-amber-500 to-rose-600' },
+          { label: 'ฟ้า-น้ำทะเล (Cyan)', val: 'from-cyan-600 to-blue-600' }
+        ].map(c => `<option value="${c.val}" ${existingCourse?.CoverColor === c.val ? 'selected' : ''}>${c.label}</option>`).join('');
+
         const { value: formValues } = await Swal.fire({
-          title: 'เพิ่มรายวิชาใหม่',
+          title: isEdit ? 'แก้ไขรายวิชา' : 'เพิ่มรายวิชาใหม่',
           html: `
-            <div class="text-left space-y-2 text-xs">
-              <label class="font-bold text-slate-700">รหัสวิชา</label>
-              <input id="swal-code" class="w-full p-2 border rounded-lg" placeholder="เช่น ว23101">
-              <label class="font-bold text-slate-700">ชื่อรายวิชา</label>
-              <input id="swal-name" class="w-full p-2 border rounded-lg" placeholder="เช่น วิทยาการคำนวณ ม.3">
-              <label class="font-bold text-slate-700">ระดับชั้น</label>
-              <input id="swal-grade" class="w-full p-2 border rounded-lg" placeholder="เช่น ม.3">
-              <label class="font-bold text-slate-700">ภาคเรียน</label>
-              <input id="swal-term" class="w-full p-2 border rounded-lg" value="1/2569">
-              <label class="font-bold text-slate-700">หน่วยกิต</label>
-              <input id="swal-credits" class="w-full p-2 border rounded-lg" value="1.5">
+            <div class="text-left space-y-2.5 text-xs">
+              <div>
+                <label class="font-bold text-slate-700 block mb-1">รหัสวิชา *</label>
+                <input id="swal-code" class="w-full p-2 border rounded-lg" placeholder="เช่น ว23101" value="${existingCourse?.Code || ''}">
+              </div>
+              <div>
+                <label class="font-bold text-slate-700 block mb-1">ชื่อรายวิชา *</label>
+                <input id="swal-name" class="w-full p-2 border rounded-lg" placeholder="เช่น วิทยาการคำนวณ ม.3" value="${existingCourse?.Name || ''}">
+              </div>
+              <div class="grid grid-cols-3 gap-2">
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">ระดับชั้น</label>
+                  <input id="swal-grade" class="w-full p-2 border rounded-lg" placeholder="ม.3" value="${existingCourse?.GradeLevel || 'ม.3'}">
+                </div>
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">ภาคเรียน</label>
+                  <input id="swal-term" class="w-full p-2 border rounded-lg" value="${existingCourse?.Term || '1/2569'}">
+                </div>
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">หน่วยกิต</label>
+                  <input id="swal-credits" class="w-full p-2 border rounded-lg" value="${existingCourse?.Credits || '1.5'}">
+                </div>
+              </div>
+              ${currentUser.role === 'admin' ? `
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">ครูผู้สอนประจำวิชา</label>
+                  <select id="swal-teacher" class="w-full p-2 border rounded-lg bg-white">${teacherOptions}</select>
+                </div>
+              ` : ''}
+              <div>
+                <label class="font-bold text-slate-700 block mb-1">ธีมสีปกรายวิชา</label>
+                <select id="swal-color" class="w-full p-2 border rounded-lg bg-white">${coverOptions}</select>
+              </div>
             </div>
           `,
           focusConfirm: false,
           showCancelButton: true,
-          confirmButtonText: 'บันทึก',
+          confirmButtonText: 'บันทึกรายวิชา',
           cancelButtonText: 'ยกเลิก',
           confirmButtonColor: '#4f46e5',
           preConfirm: () => {
-            const code = document.getElementById('swal-code').value;
-            const name = document.getElementById('swal-name').value;
-            const gradeLevel = document.getElementById('swal-grade').value;
-            const term = document.getElementById('swal-term').value;
-            const credits = document.getElementById('swal-credits').value;
+            const code = document.getElementById('swal-code').value.trim();
+            const name = document.getElementById('swal-name').value.trim();
+            const gradeLevel = document.getElementById('swal-grade').value.trim();
+            const term = document.getElementById('swal-term').value.trim();
+            const credits = document.getElementById('swal-credits').value.trim();
+            const coverColor = document.getElementById('swal-color').value;
+            const teacherEl = document.getElementById('swal-teacher');
+            const selectedTeacherId = teacherEl ? teacherEl.value : (currentUser.user.TeacherID || 'T101');
             if (!code || !name) {
-              Swal.showValidationMessage('กรุณากรอกรหัสและชื่อวิชา');
+              Swal.showValidationMessage('กรุณากรอกรหัสวิชาและชื่อรายวิชา');
               return false;
             }
-            return { code, name, gradeLevel, term, credits };
+            return { code, name, gradeLevel, term, credits, coverColor, selectedTeacherId };
           }
         });
 
         if (formValues) {
-          const newCourse = {
-            CourseID: 'C_' + Date.now().toString().slice(-6),
+          const matchedTeacher = allTeachers.find(t => t.TeacherID === formValues.selectedTeacherId);
+          const teacherName = matchedTeacher ? matchedTeacher.Name : (currentUser.role === 'teacher' ? currentUser.user.Name : 'ครูผู้สอน');
+
+          const courseData = {
+            CourseID: existingCourse ? existingCourse.CourseID : ('C_' + Date.now().toString().slice(-6)),
             Code: formValues.code,
             Name: formValues.name,
-            TeacherID: currentUser.role === 'teacher' ? currentUser.user.TeacherID : (allTeachers[0]?.TeacherID || 'T101'),
-            TeacherName: currentUser.role === 'teacher' ? currentUser.user.Name : (allTeachers[0]?.Name || 'ครูผู้สอน'),
+            TeacherID: formValues.selectedTeacherId,
+            TeacherName: teacherName,
             GradeLevel: formValues.gradeLevel,
             Term: formValues.term,
             Credits: formValues.credits,
-            CoverColor: 'from-indigo-600 to-blue-700',
-            CreatedAt: new Date().toISOString().split('T')[0]
+            CoverColor: formValues.coverColor,
+            CreatedAt: existingCourse ? existingCourse.CreatedAt : new Date().toISOString().split('T')[0]
           };
-          onSaveCourse(newCourse);
-          Swal.fire({ icon: 'success', title: 'เพิ่มรายวิชาสำเร็จ', timer: 1500, showConfirmButton: false });
+          onSaveCourse(courseData);
+          Swal.fire({ icon: 'success', title: 'บันทึกรายวิชาสำเร็จ', timer: 1400, showConfirmButton: false });
         }
       };
 
@@ -1060,15 +1136,15 @@
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
               <h2 className="text-xl font-bold text-slate-900">รายวิชาเรียนทั้งหมด</h2>
-              <p className="text-slate-500 text-xs mt-0.5">เลือกรายวิชาเพื่อเข้าสู่ห้องเรียน บทเรียน และการบ้าน</p>
+              <p className="text-slate-500 text-xs mt-0.5">เลือกรายวิชาเพื่อเข้าสู่ห้องเรียน บทเรียน การบ้าน และแบบทดสอบ</p>
             </div>
             {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
               <button
-                onClick={handleCreateCourse}
+                onClick={() => handleOpenCourseModal(null)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl transition shadow-sm"
               >
                 <Icon name="Plus" size={18} />
-                <span>เพิ่มรายวิชา</span>
+                <span>เพิ่มรายวิชาใหม่</span>
               </button>
             )}
           </div>
@@ -1111,7 +1187,7 @@
                       </div>
                       <div className="flex items-center gap-2 text-xs text-slate-500">
                         <Icon name="Award" size={16} className="text-amber-500" />
-                        <span>จำนวน {course.Credits || '1.5'} หน่วยกิต</span>
+                        <span>จำนวน {course.Credits || '1.5'} หน่วยกิต • รหัสอ้างอิง: <code className="text-indigo-600 font-bold">{course.CourseID}</code></span>
                       </div>
                     </div>
 
@@ -1119,24 +1195,35 @@
                       <span className="text-xs font-semibold text-indigo-600 group-hover:translate-x-1 transition duration-150 inline-flex items-center gap-1">
                         เข้าสู่บทเรียน <Icon name="ChevronRight" size={16} />
                       </span>
-                      {currentUser.role === 'admin' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            Swal.fire({
-                              title: 'ลบรายวิชานี้?',
-                              text: `คุณต้องการลบวิชา ${course.Name} หรือไม่`,
-                              icon: 'warning',
-                              showCancelButton: true,
-                              confirmButtonColor: '#ef4444'
-                            }).then(res => {
-                              if (res.isConfirmed) onDeleteCourse(course.CourseID);
-                            });
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
-                        >
-                          <Icon name="Trash2" size={16} />
-                        </button>
+                      {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
+                        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleOpenCourseModal(course)}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition"
+                            title="แก้ไขรายวิชา"
+                          >
+                            <Icon name="Edit" size={15} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              Swal.fire({
+                                title: 'ลบรายวิชานี้?',
+                                text: `คุณต้องการลบวิชา ${course.Name} หรือไม่`,
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#ef4444',
+                                confirmButtonText: 'ลบรายวิชา',
+                                cancelButtonText: 'ยกเลิก'
+                              }).then(res => {
+                                if (res.isConfirmed) onDeleteCourse(course.CourseID);
+                              });
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                            title="ลบรายวิชา"
+                          >
+                            <Icon name="Trash2" size={15} />
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1149,55 +1236,115 @@
     }
 
     function LessonsView({ course, lessons, currentUser, onSaveLesson, onDeleteLesson }) {
-      const sortedLessons = useMemo(() => {
-        return [...lessons].sort((a, b) => (parseInt(a.Order) || 0) - (parseInt(b.Order) || 0));
-      }, [lessons]);
+      const [activeVideoId, setActiveVideoId] = useState(null);
 
-      const handleAddLesson = async () => {
+      // Filter unpublished lessons for students
+      const visibleLessons = useMemo(() => {
+        const list = currentUser.role === 'student'
+          ? lessons.filter(l => String(l.Published) !== 'false')
+          : lessons;
+        return [...list].sort((a, b) => (parseInt(a.Order) || 0) - (parseInt(b.Order) || 0));
+      }, [lessons, currentUser.role]);
+
+      // Helper to convert YouTube or Google Drive links into embeddable URL
+      const getEmbedUrl = (url) => {
+        if (!url) return null;
+        const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+        if (ytMatch && ytMatch[1]) {
+          return `https://www.youtube.com/embed/${ytMatch[1]}`;
+        }
+        const driveMatch = url.match(/\/file\/d\/([^\/]+)/);
+        if (driveMatch && driveMatch[1]) {
+          return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+        }
+        return null;
+      };
+
+      const handleOpenLessonModal = async (existingLesson = null) => {
+        const isEdit = !!existingLesson;
+        let existingAttachments = [];
+        try {
+          existingAttachments = JSON.parse(existingLesson?.AttachmentsJSON || '[]');
+        } catch {
+          existingAttachments = [];
+        }
+
+        const attachmentsText = existingAttachments.map(a => `${a.title} | ${a.url}`).join('\n');
+
         const { value: formValues } = await Swal.fire({
-          title: 'เพิ่มบทเรียนใหม่',
+          title: isEdit ? 'แก้ไขบทเรียนและสื่อการสอน' : 'เพิ่มบทเรียนใหม่',
+          width: 600,
           html: `
-            <div class="text-left space-y-2 text-xs">
-              <label class="font-bold text-slate-700">ชื่อบทเรียน / หัวข้อ</label>
-              <input id="swal-title" class="w-full p-2 border rounded-lg" placeholder="เช่น บทที่ 1: การประมวลผลข้อมูล">
-              <label class="font-bold text-slate-700">คำอธิบาย</label>
-              <textarea id="swal-desc" class="w-full p-2 border rounded-lg h-20" placeholder="รายละเอียดเนื้อหาบทเรียน..."></textarea>
-              <label class="font-bold text-slate-700">ลิงก์วิดีโอ (YouTube URL)</label>
-              <input id="swal-video" class="w-full p-2 border rounded-lg" placeholder="https://www.youtube.com/watch?v=...">
-              <label class="font-bold text-slate-700">ลำดับบทเรียน (Order)</label>
-              <input id="swal-order" type="number" class="w-full p-2 border rounded-lg" value="${lessons.length + 1}">
+            <div class="text-left space-y-2.5 text-xs">
+              <div class="grid grid-cols-4 gap-2">
+                <div class="col-span-3">
+                  <label class="font-bold text-slate-700 block mb-1">ชื่อบทเรียน / หัวข้อ *</label>
+                  <input id="swal-title" class="w-full p-2 border rounded-lg" placeholder="เช่น บทที่ 1: การประมวลผลข้อมูล" value="${existingLesson?.Title || ''}">
+                </div>
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">ลำดับที่</label>
+                  <input id="swal-order" type="number" class="w-full p-2 border rounded-lg" value="${existingLesson?.Order || (lessons.length + 1)}">
+                </div>
+              </div>
+              <div>
+                <label class="font-bold text-slate-700 block mb-1">เนื้อหา / คำอธิบายบทเรียน</label>
+                <textarea id="swal-desc" class="w-full p-2 border rounded-lg h-24" placeholder="อธิบายเนื้อหา สรุปใจความสำคัญ หรือคำชี้แจง...">${existingLesson?.Description || ''}</textarea>
+              </div>
+              <div>
+                <label class="font-bold text-slate-700 block mb-1">ลิงก์วิดีโอ (YouTube หรือ Google Drive Video Share Link)</label>
+                <input id="swal-video" class="w-full p-2 border rounded-lg" placeholder="https://www.youtube.com/watch?v=..." value="${existingLesson?.VideoURL || ''}">
+              </div>
+              <div>
+                <label class="font-bold text-slate-700 block mb-1">เอกสาร PDF / ลิงก์ใบความรู้ (บรรทัดละ 1 ลิงก์ รูปแบบ: ชื่อเอกสาร | URL)</label>
+                <textarea id="swal-att" class="w-full p-2 border rounded-lg h-20 font-mono text-[11px]" placeholder="สไลด์บทที่ 1 (PDF) | https://drive.google.com/...\nใบความรู้เพิ่มเติม | https://example.com">${attachmentsText}</textarea>
+              </div>
             </div>
           `,
           focusConfirm: false,
           showCancelButton: true,
+          confirmButtonText: 'บันทึกบทเรียน',
+          cancelButtonText: 'ยกเลิก',
           confirmButtonColor: '#4f46e5',
           preConfirm: () => {
-            const title = document.getElementById('swal-title').value;
-            const description = document.getElementById('swal-desc').value;
-            const videoUrl = document.getElementById('swal-video').value;
-            const order = document.getElementById('swal-order').value;
+            const title = document.getElementById('swal-title').value.trim();
+            const description = document.getElementById('swal-desc').value.trim();
+            const videoUrl = document.getElementById('swal-video').value.trim();
+            const order = document.getElementById('swal-order').value.trim();
+            const rawAtt = document.getElementById('swal-att').value.trim();
             if (!title) {
               Swal.showValidationMessage('กรุณากรอกชื่อบทเรียน');
               return false;
             }
-            return { title, description, videoUrl, order };
+            const parsedAtt = rawAtt
+              .split('\n')
+              .map(line => line.trim())
+              .filter(Boolean)
+              .map(line => {
+                const parts = line.split('|');
+                if (parts.length >= 2) {
+                  return { title: parts[0].trim(), url: parts.slice(1).join('|').trim() };
+                }
+                return { title: 'เอกสารประกอบการเรียน', url: line };
+              });
+
+            return { title, description, videoUrl, order, attachments: parsedAtt };
           }
         });
 
         if (formValues) {
-          const newLesson = {
-            LessonID: 'LES_' + Date.now().toString().slice(-6),
+          const lessonData = {
+            LessonID: existingLesson ? existingLesson.LessonID : ('LES_' + Date.now().toString().slice(-6)),
             CourseID: course.CourseID,
             Title: formValues.title,
             Description: formValues.description,
             VideoURL: formValues.videoUrl,
-            AttachmentsJSON: '[]',
+            AttachmentsJSON: JSON.stringify(formValues.attachments),
             Order: formValues.order || '1',
-            Published: 'true',
-            CreatedAt: new Date().toISOString().split('T')[0]
+            Published: existingLesson ? existingLesson.Published : 'true',
+            CreatedAt: existingLesson ? existingLesson.CreatedAt : new Date().toISOString().split('T')[0]
           };
-          onSaveLesson(newLesson);
-          Swal.fire({ icon: 'success', title: 'เพิ่มบทเรียนสำเร็จ', timer: 1500, showConfirmButton: false });
+          onSaveLesson(lessonData);
+          Swal.fire({ icon: 'success', title: 'บันทึกบทเรียนสำเร็จ', timer: 1400, showConfirmButton: false });
         }
       };
 
@@ -1210,80 +1357,153 @@
                 <span>•</span>
                 <span>{course.Name}</span>
               </div>
-              <h2 className="text-xl font-bold text-slate-900">สื่อและบทเรียนการสอน (Lessons)</h2>
+              <h2 className="text-xl font-bold text-slate-900">สื่อและบทเรียนการสอน (Lessons & Materials)</h2>
             </div>
             {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
               <button
-                onClick={handleAddLesson}
+                onClick={() => handleOpenLessonModal(null)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl transition shadow-sm"
               >
                 <Icon name="Plus" size={18} />
-                <span>สร้างบทเรียน</span>
+                <span>เพิ่มบทเรียน / สื่อการสอน</span>
               </button>
             )}
           </div>
 
-          {sortedLessons.length === 0 ? (
+          {visibleLessons.length === 0 ? (
             <div className="bg-white rounded-2xl p-12 text-center border border-slate-200">
               <Icon name="Video" size={36} className="text-slate-300 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-slate-600">ยังไม่มีบทเรียนในรายวิชานี้</p>
+              <p className="text-sm font-semibold text-slate-600">ยังไม่มีบทเรียนที่เผยแพร่ในรายวิชานี้</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {sortedLessons.map((lesson, idx) => (
-                <div key={lesson.LessonID} className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs">
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <div className="flex items-center gap-3">
-                      <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm">
-                        {lesson.Order || idx + 1}
-                      </span>
-                      <h3 className="font-bold text-slate-900 text-base">{lesson.Title}</h3>
+              {visibleLessons.map((lesson, idx) => {
+                let attachments = [];
+                try {
+                  attachments = JSON.parse(lesson.AttachmentsJSON || '[]');
+                } catch {
+                  attachments = [];
+                }
+                const embedUrl = getEmbedUrl(lesson.VideoURL);
+                const isShowingVideo = activeVideoId === lesson.LessonID;
+
+                return (
+                  <div key={lesson.LessonID} className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs">
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm shrink-0">
+                          {lesson.Order || idx + 1}
+                        </span>
+                        <h3 className="font-bold text-slate-900 text-base">{lesson.Title}</h3>
+                      </div>
+                      {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => {
+                              const updated = { ...lesson, Published: String(lesson.Published) === 'true' ? 'false' : 'true' };
+                              onSaveLesson(updated);
+                            }}
+                            className={`text-xs px-2.5 py-1 rounded-full font-semibold transition ${
+                              String(lesson.Published) === 'true' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                            }`}
+                          >
+                            {String(lesson.Published) === 'true' ? 'เผยแพร่แล้ว' : 'ซ่อนอยู่ (Unpublished)'}
+                          </button>
+                          <button
+                            onClick={() => handleOpenLessonModal(lesson)}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition"
+                            title="แก้ไขบทเรียน"
+                          >
+                            <Icon name="Edit" size={16} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              Swal.fire({
+                                title: 'ลบบทเรียนนี้?',
+                                text: lesson.Title,
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#ef4444'
+                              }).then(r => { if (r.isConfirmed) onDeleteLesson(lesson.LessonID); });
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                            title="ลบบทเรียน"
+                          >
+                            <Icon name="Trash2" size={16} />
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            const updated = { ...lesson, Published: lesson.Published === 'true' ? 'false' : 'true' };
-                            onSaveLesson(updated);
-                          }}
-                          className={`text-xs px-2.5 py-1 rounded-full font-semibold transition ${
-                            lesson.Published === 'true' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                          }`}
-                        >
-                          {lesson.Published === 'true' ? 'เผยแพร่แล้ว' : 'ซ่อน'}
-                        </button>
-                        <button
-                          onClick={() => onDeleteLesson(lesson.LessonID)}
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
-                        >
-                          <Icon name="Trash2" size={16} />
-                        </button>
+
+                    <p className="text-slate-600 text-sm mb-4 leading-relaxed whitespace-pre-line">{lesson.Description}</p>
+
+                    {/* Video Player Bar */}
+                    {lesson.VideoURL && (
+                      <div className="mt-3">
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 text-xs text-slate-700">
+                            <Icon name="Video" size={18} className="text-rose-600 shrink-0" />
+                            <span className="font-semibold">สื่อวิดีโอประจำบทเรียน</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {embedUrl && (
+                              <button
+                                onClick={() => setActiveVideoId(isShowingVideo ? null : lesson.LessonID)}
+                                className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg transition"
+                              >
+                                {isShowingVideo ? 'ซ่อนวิดีโอ' : 'เล่นวิดีโอบนหน้าเว็บ'}
+                              </button>
+                            )}
+                            <a
+                              href={lesson.VideoURL}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                            >
+                              <span>เปิดลิงก์ต้นฉบับ</span>
+                              <Icon name="ExternalLink" size={14} />
+                            </a>
+                          </div>
+                        </div>
+
+                        {isShowingVideo && embedUrl && (
+                          <div className="mt-3 rounded-2xl overflow-hidden border border-slate-200 bg-black aspect-video">
+                            <iframe
+                              src={embedUrl}
+                              className="w-full h-full"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              title={lesson.Title}
+                            ></iframe>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* PDF & External Link Attachments */}
+                    {attachments.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-slate-100">
+                        <div className="text-xs font-bold text-slate-700 mb-2">เอกสารประกอบการเรียน / ลิงก์แนบ:</div>
+                        <div className="flex flex-wrap gap-2">
+                          {attachments.map((att, i) => (
+                            <a
+                              key={i}
+                              href={att.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-medium border border-indigo-100 transition"
+                            >
+                              <Icon name="FileText" size={14} />
+                              <span>{att.title || 'เปิดเอกสาร'}</span>
+                              <Icon name="ExternalLink" size={12} />
+                            </a>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
-
-                  <p className="text-slate-600 text-sm mb-4 leading-relaxed whitespace-pre-line">{lesson.Description}</p>
-
-                  {lesson.VideoURL && (
-                    <div className="mt-3 bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-xs text-slate-700">
-                        <Icon name="Video" size={18} className="text-rose-600" />
-                        <span className="font-medium">วิดีโอประกอบการเรียนรู้:</span>
-                        <span className="truncate max-w-xs text-slate-500">{lesson.VideoURL}</span>
-                      </div>
-                      <a
-                        href={lesson.VideoURL}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800"
-                      >
-                        <span>เปิดดูวิดีโอ</span>
-                        <Icon name="ExternalLink" size={14} />
-                      </a>
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1538,14 +1758,22 @@
                                 <span className="text-xs text-amber-600 font-medium block mt-1">รอครูผู้สอนตรวจและให้คะแนน</span>
                               )}
                             </div>
-                            <a
-                              href={mySubmission.FileUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-100 transition inline-flex items-center gap-1"
-                            >
-                              <Icon name="ExternalLink" size={14} /> ดูไฟล์ที่ส่ง
-                            </a>
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={mySubmission.FileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-100 transition inline-flex items-center gap-1"
+                              >
+                                <Icon name="ExternalLink" size={14} /> ดูไฟล์ที่ส่ง
+                              </a>
+                              <button
+                                onClick={() => handleFileUpload(assign)}
+                                className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-medium rounded-lg transition"
+                              >
+                                ส่งไฟล์ใหม่
+                              </button>
+                            </div>
                           </div>
                         ) : (
                           <div className="w-full flex items-center justify-between">
@@ -1629,54 +1857,91 @@
     }
 
     function ExamsView({ course, exams, attempts, currentUser, onStartExam, onSaveExam, onDeleteExam }) {
-      const handleCreateExam = async () => {
-        const { value: formValues } = await Swal.fire({
-          title: 'สร้างแบบทดสอบออนไลน์',
-          html: `
-            <div class="text-left space-y-2 text-xs">
-              <label class="font-bold text-slate-700">ชื่อชุดแบบทดสอบ</label>
-              <input id="swal-exam-title" class="w-full p-2 border rounded-lg" placeholder="เช่น แบบทดสอบกลางภาค">
-              <label class="font-bold text-slate-700">คำอธิบาย</label>
-              <textarea id="swal-exam-desc" class="w-full p-2 border rounded-lg" placeholder="รายละเอียดหรือกติกาการสอบ..."></textarea>
-              <label class="font-bold text-slate-700">เวลาทำข้อสอบ (นาที)</label>
-              <input id="swal-exam-time" type="number" class="w-full p-2 border rounded-lg" value="15">
-            </div>
-          `,
-          showCancelButton: true,
-          confirmButtonColor: '#4f46e5',
-          preConfirm: () => {
-            const title = document.getElementById('swal-exam-title').value;
-            const description = document.getElementById('swal-exam-desc').value;
-            const timeLimit = document.getElementById('swal-exam-time').value;
-            if (!title) {
-              Swal.showValidationMessage('กรุณากรอกชื่อข้อสอบ');
-              return false;
-            }
-            return { title, description, timeLimit };
+      const [editingExam, setEditingExam] = useState(null); // null or exam object for full editor
+      const [viewingAttemptsExam, setViewingAttemptsExam] = useState(null);
+
+      // State inside custom Exam Builder Modal
+      const [examTitle, setExamTitle] = useState('');
+      const [examDesc, setExamDesc] = useState('');
+      const [examTime, setExamTime] = useState('15');
+      const [questionsList, setQuestionsList] = useState([]);
+
+      const openExamBuilder = (existing = null) => {
+        if (existing) {
+          setEditingExam(existing);
+          setExamTitle(existing.Title || '');
+          setExamDesc(existing.Description || '');
+          setExamTime(existing.TimeLimitMin || '15');
+          try {
+            setQuestionsList(JSON.parse(existing.QuestionsJSON || '[]'));
+          } catch {
+            setQuestionsList([]);
           }
-        });
-
-        if (formValues) {
-          // Default Sample Multiple-choice questions
-          const sampleQuestions = [
-            { id: 'q1', text: 'คำถามข้อที่ 1: การเขียนโปรแกรมโครงสร้างประกอบด้วยโครงสร้างใดบ้าง?', options: ['ลำดับ, เลือกทำ, ทำซ้ำ', 'อินพุต, แปลงผล, รีเซ็ต', 'ไฟล์, ฐานข้อมูล, เซิร์ฟเวอร์', 'กราฟิก, ดนตรี, มัลติมีเดีย'], answerIndex: 0, score: 5 },
-            { id: 'q2', text: 'คำถามข้อที่ 2: Protocol หลักที่ใช้ในการส่งข้อมูลหน้าเว็บเบราว์เซอร์คือข้อใด?', options: ['FTP', 'HTTPS', 'SMTP', 'SSH'], answerIndex: 1, score: 5 }
-          ];
-
-          const newExam = {
-            ExamID: 'EX_' + Date.now().toString().slice(-6),
-            CourseID: course.CourseID,
-            Title: formValues.title,
-            Description: formValues.description,
-            TimeLimitMin: formValues.timeLimit || '15',
-            QuestionsJSON: JSON.stringify(sampleQuestions),
-            Published: 'true',
-            CreatedAt: new Date().toISOString().split('T')[0]
-          };
-
-          onSaveExam(newExam);
-          Swal.fire({ icon: 'success', title: 'สร้างข้อสอบสำเร็จ (พร้อมคำถามตัวอย่าง 2 ข้อ)', confirmButtonColor: '#4f46e5' });
+        } else {
+          setEditingExam({ isNew: true });
+          setExamTitle('');
+          setExamDesc('');
+          setExamTime('15');
+          setQuestionsList([
+            { id: 'q_' + Date.now(), text: '', options: ['', '', '', ''], answerIndex: 0, score: 5 }
+          ]);
         }
+      };
+
+      const handleAddQuestion = () => {
+        setQuestionsList(prev => [
+          ...prev,
+          { id: 'q_' + Date.now() + '_' + prev.length, text: '', options: ['', '', '', ''], answerIndex: 0, score: 5 }
+        ]);
+      };
+
+      const handleUpdateQuestion = (idx, field, val) => {
+        setQuestionsList(prev => {
+          const copy = [...prev];
+          copy[idx] = { ...copy[idx], [field]: val };
+          return copy;
+        });
+      };
+
+      const handleUpdateOption = (qIdx, optIdx, val) => {
+        setQuestionsList(prev => {
+          const copy = [...prev];
+          const newOpts = [...copy[qIdx].options];
+          newOpts[optIdx] = val;
+          copy[qIdx] = { ...copy[qIdx], options: newOpts };
+          return copy;
+        });
+      };
+
+      const handleRemoveQuestion = (idx) => {
+        setQuestionsList(prev => prev.filter((_, i) => i !== idx));
+      };
+
+      const handleSaveExamBuilder = (e) => {
+        e.preventDefault();
+        if (!examTitle.trim()) {
+          Swal.fire({ icon: 'warning', title: 'กรุณาระบุชื่อชุดแบบทดสอบ' });
+          return;
+        }
+        if (questionsList.length === 0) {
+          Swal.fire({ icon: 'warning', title: 'กรุณาเพิ่มข้อสอบอย่างน้อย 1 ข้อ' });
+          return;
+        }
+
+        const record = {
+          ExamID: editingExam.isNew ? ('EX_' + Date.now().toString().slice(-6)) : editingExam.ExamID,
+          CourseID: course.CourseID,
+          Title: examTitle.trim(),
+          Description: examDesc.trim(),
+          TimeLimitMin: String(examTime || '15'),
+          QuestionsJSON: JSON.stringify(questionsList),
+          Published: 'true',
+          CreatedAt: editingExam.CreatedAt || new Date().toISOString().split('T')[0]
+        };
+
+        onSaveExam(record);
+        setEditingExam(null);
+        Swal.fire({ icon: 'success', title: 'บันทึกชุดข้อสอบเรียบร้อย!', timer: 1500, showConfirmButton: false });
       };
 
       return (
@@ -1692,14 +1957,194 @@
             </div>
             {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
               <button
-                onClick={handleCreateExam}
+                onClick={() => openExamBuilder(null)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl transition shadow-sm"
               >
                 <Icon name="Plus" size={18} />
-                <span>สร้างแบบทดสอบ</span>
+                <span>สร้างชุดข้อสอบใหม่</span>
               </button>
             )}
           </div>
+
+          {/* Interactive Exam Builder Modal */}
+          {editingExam && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+              <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-8 max-h-[90vh] flex flex-col">
+                <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+                  <h3 className="font-bold text-base">
+                    {editingExam.isNew ? 'สร้างชุดแบบทดสอบปรนัยใหม่' : `แก้ไขข้อสอบ: ${editingExam.Title}`}
+                  </h3>
+                  <button onClick={() => setEditingExam(null)} className="text-slate-400 hover:text-white text-sm font-bold">✕ ปิด</button>
+                </div>
+
+                <form onSubmit={handleSaveExamBuilder} className="p-6 overflow-y-auto custom-scroll space-y-5 flex-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <div className="sm:col-span-3">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">ชื่อชุดแบบทดสอบ *</label>
+                      <input
+                        type="text"
+                        required
+                        value={examTitle}
+                        onChange={e => setExamTitle(e.target.value)}
+                        placeholder="เช่น แบบทดสอบเก็บคะแนนกลางภาค บทที่ 1-2"
+                        className="w-full p-2.5 text-xs border border-slate-200 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">เวลาสอบ (นาที) *</label>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        value={examTime}
+                        onChange={e => setExamTime(e.target.value)}
+                        className="w-full p-2.5 text-xs border border-slate-200 rounded-xl"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">คำชี้แจง / กติกาการสอบ</label>
+                    <textarea
+                      value={examDesc}
+                      onChange={e => setExamDesc(e.target.value)}
+                      placeholder="ระบุคำชี้แจงสำหรับนักเรียน..."
+                      className="w-full p-2.5 text-xs border border-slate-200 rounded-xl h-16"
+                    ></textarea>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <span className="text-xs font-bold text-slate-800">รายการคำถามปรนัย ({questionsList.length} ข้อ)</span>
+                      <button
+                        type="button"
+                        onClick={handleAddQuestion}
+                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg transition inline-flex items-center gap-1"
+                      >
+                        <Icon name="Plus" size={14} /> เพิ่มข้อคำถาม
+                      </button>
+                    </div>
+
+                    {questionsList.map((q, qIdx) => (
+                      <div key={q.id || qIdx} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-extrabold text-indigo-600">ข้อที่ {qIdx + 1}</span>
+                          <div className="flex items-center gap-2">
+                            <label className="text-[11px] font-semibold text-slate-600">คะแนนข้อนี้:</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={q.score || 5}
+                              onChange={e => handleUpdateQuestion(qIdx, 'score', parseInt(e.target.value) || 1)}
+                              className="w-16 p-1 text-xs border rounded-lg text-center bg-white"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveQuestion(qIdx)}
+                              className="text-rose-500 hover:text-rose-700 p-1"
+                              title="ลบข้อนี้"
+                            >
+                              <Icon name="Trash2" size={15} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <input
+                          type="text"
+                          required
+                          placeholder="พิมพ์โจทย์คำถามที่นี่..."
+                          value={q.text}
+                          onChange={e => handleUpdateQuestion(qIdx, 'text', e.target.value)}
+                          className="w-full p-2.5 text-xs bg-white border border-slate-200 rounded-xl font-medium"
+                        />
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                          {q.options.map((opt, optIdx) => (
+                            <div key={optIdx} className={`flex items-center gap-2 p-2 rounded-xl border bg-white ${q.answerIndex === optIdx ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-slate-200'}`}>
+                              <input
+                                type="radio"
+                                name={`correct_${qIdx}`}
+                                checked={q.answerIndex === optIdx}
+                                onChange={() => handleUpdateQuestion(qIdx, 'answerIndex', optIdx)}
+                                title="เลือกเป็นคำตอบที่ถูกต้อง"
+                              />
+                              <input
+                                type="text"
+                                required
+                                placeholder={`ตัวเลือกที่ ${optIdx + 1}`}
+                                value={opt}
+                                onChange={e => handleUpdateOption(qIdx, optIdx, e.target.value)}
+                                className="flex-1 text-xs focus:outline-hidden"
+                              />
+                              {q.answerIndex === optIdx && (
+                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">เฉลย</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setEditingExam(null)}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-md"
+                    >
+                      บันทึกชุดข้อสอบ
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Viewing Attempts Modal for Teacher/Admin */}
+          {viewingAttemptsExam && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+              <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
+                <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+                  <h3 className="font-bold text-sm">ผลคะแนนสอบ: {viewingAttemptsExam.Title}</h3>
+                  <button onClick={() => setViewingAttemptsExam(null)} className="text-slate-400 hover:text-white text-xs font-bold">✕ ปิด</button>
+                </div>
+                <div className="p-6 max-h-[70vh] overflow-y-auto">
+                  {attempts.filter(a => a.ExamID === viewingAttemptsExam.ExamID).length === 0 ? (
+                    <p className="text-center text-xs text-slate-400 py-8">ยังไม่มีนักเรียนเข้าทำแบบทดสอบชุดนี้</p>
+                  ) : (
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-slate-500">
+                          <th className="py-2">รหัสนักเรียน</th>
+                          <th className="py-2">ชื่อ-นามสกุล</th>
+                          <th className="py-2">คะแนนที่ได้</th>
+                          <th className="py-2">เวลาที่ใช้</th>
+                          <th className="py-2">ส่งเมื่อ</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {attempts.filter(a => a.ExamID === viewingAttemptsExam.ExamID).map(att => (
+                          <tr key={att.AttemptID}>
+                            <td className="py-2.5 font-bold text-indigo-600">{att.StudentID}</td>
+                            <td className="py-2.5 font-medium text-slate-800">{att.StudentName}</td>
+                            <td className="py-2.5 font-bold text-emerald-600">{att.Score} / {att.TotalScore}</td>
+                            <td className="py-2.5 text-slate-500">{att.TimeSpentSec} วินาที</td>
+                            <td className="py-2.5 text-slate-400">{att.SubmittedAt}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {exams.length === 0 ? (
             <div className="bg-white rounded-2xl p-12 text-center border border-slate-200">
@@ -1716,6 +2161,7 @@
                   questions = [];
                 }
 
+                const totalMaxScore = questions.reduce((acc, q) => acc + (parseInt(q.score) || 5), 0);
                 const myAttempt = currentUser.role === 'student'
                   ? attempts.find(att => att.ExamID === exam.ExamID && att.StudentID === currentUser.user.StudentID)
                   : null;
@@ -1729,7 +2175,7 @@
                         <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-md flex items-center gap-1">
                           <Icon name="Clock" size={13} /> {exam.TimeLimitMin} นาที
                         </span>
-                        <span className="text-xs text-slate-500 font-medium">{questions.length} ข้อ</span>
+                        <span className="text-xs text-slate-500 font-semibold">{questions.length} ข้อ ({totalMaxScore} คะแนน)</span>
                       </div>
                       <h3 className="text-lg font-bold text-slate-900 mb-1">{exam.Title}</h3>
                       <p className="text-slate-600 text-sm mb-4 leading-relaxed">{exam.Description}</p>
@@ -1771,14 +2217,36 @@
                       )}
 
                       {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs text-slate-500">
-                            <span>ผู้เข้าสอบแล้ว: {examAttempts.length} คน</span>
+                        <div className="flex items-center justify-between gap-2">
+                          <button
+                            onClick={() => setViewingAttemptsExam(exam)}
+                            className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition inline-flex items-center gap-1.5"
+                          >
+                            <Icon name="Users" size={14} />
+                            <span>ดูผลคะแนน ({examAttempts.length} คน)</span>
+                          </button>
+                          <div className="flex items-center gap-2">
                             <button
-                              onClick={() => onDeleteExam(exam.ExamID)}
-                              className="text-rose-600 hover:text-rose-800"
+                              onClick={() => openExamBuilder(exam)}
+                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition"
+                              title="แก้ไขโจทย์ข้อสอบ"
                             >
-                              ลบข้อสอบ
+                              <Icon name="Edit" size={16} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                Swal.fire({
+                                  title: 'ลบชุดข้อสอบนี้?',
+                                  text: exam.Title,
+                                  icon: 'warning',
+                                  showCancelButton: true,
+                                  confirmButtonColor: '#ef4444'
+                                }).then(r => { if (r.isConfirmed) onDeleteExam(exam.ExamID); });
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                              title="ลบข้อสอบ"
+                            >
+                              <Icon name="Trash2" size={16} />
                             </button>
                           </div>
                         </div>
@@ -2136,56 +2604,95 @@
         );
       }, [students, filter]);
 
-      // Add Single Student Modal
-      const handleAddStudent = async () => {
+      const handleDownloadCsvTemplate = () => {
+        const csvContent = "StudentID,PIN,Name,Email,Grade,AllowedCourses\n04501,1234,ด.ช. กิตติพงษ์ ใจมั่น,kittipong@school.ac.th,ม.3/1,\"C101,C102\"\n04502,1234,ด.ญ. ธนพร วรรณวิมล,,ม.3/1,C101";
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'eduportal_students_template.csv';
+        a.click();
+      };
+
+      // Add or Edit Single Student Modal with Granular Course Checkboxes
+      const handleOpenStudentModal = async (existingStudent = null) => {
+        const isEdit = !!existingStudent;
+        const currentAllowed = (existingStudent?.AllowedCourses || '').split(',').map(s => s.trim()).filter(Boolean);
+
+        const courseCheckboxesHtml = courses.map(c => `
+          <label class="flex items-center gap-2 p-1.5 border rounded-lg bg-slate-50 cursor-pointer">
+            <input type="checkbox" class="swal-course-cb" value="${c.CourseID}" ${currentAllowed.includes(c.CourseID) ? 'checked' : ''}>
+            <span class="text-[11px] font-medium text-slate-700">${c.Code} - ${c.Name} (${c.CourseID})</span>
+          </label>
+        `).join('');
+
         const { value: formValues } = await Swal.fire({
-          title: 'เพิ่มนักเรียนเดี่ยว',
+          title: isEdit ? `แก้ไขข้อมูลนักเรียน: ${existingStudent.StudentID}` : 'เพิ่มนักเรียนใหม่',
           html: `
-            <div class="text-left space-y-2 text-xs">
-              <label class="font-bold text-slate-700">รหัสนักเรียน (StudentID)</label>
-              <input id="swal-st-id" class="w-full p-2 border rounded-lg" placeholder="เช่น 04505">
-              <label class="font-bold text-slate-700">รหัส PIN (สำหรับ Login)</label>
-              <input id="swal-st-pin" class="w-full p-2 border rounded-lg" value="1234">
-              <label class="font-bold text-slate-700">ชื่อ-นามสกุล</label>
-              <input id="swal-st-name" class="w-full p-2 border rounded-lg" placeholder="เช่น ด.ช. รักเรียน ขยันดี">
-              <label class="font-bold text-slate-700">อีเมล (Optional - ว่างได้)</label>
-              <input id="swal-st-email" type="email" class="w-full p-2 border rounded-lg" placeholder="student@school.ac.th">
-              <label class="font-bold text-slate-700">ระดับชั้น</label>
-              <input id="swal-st-grade" class="w-full p-2 border rounded-lg" placeholder="เช่น ม.3/1">
-              <label class="font-bold text-slate-700">รหัสวิชาที่ลงทะเบียน (คั่นด้วยจุลภาค)</label>
-              <input id="swal-st-courses" class="w-full p-2 border rounded-lg" placeholder="เช่น C101,C102">
+            <div class="text-left space-y-2.5 text-xs">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">รหัสนักเรียน (StudentID) *</label>
+                  <input id="swal-st-id" class="w-full p-2 border rounded-lg" placeholder="เช่น 04505" value="${existingStudent?.StudentID || ''}" ${isEdit ? 'readonly' : ''}>
+                </div>
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">รหัส PIN (4 หลัก)</label>
+                  <input id="swal-st-pin" class="w-full p-2 border rounded-lg" value="${existingStudent?.PIN || '1234'}">
+                </div>
+              </div>
+              <div>
+                <label class="font-bold text-slate-700 block mb-1">ชื่อ-นามสกุล *</label>
+                <input id="swal-st-name" class="w-full p-2 border rounded-lg" placeholder="เช่น ด.ช. รักเรียน ขยันดี" value="${existingStudent?.Name || ''}">
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">ระดับชั้น</label>
+                  <input id="swal-st-grade" class="w-full p-2 border rounded-lg" placeholder="เช่น ม.3/1" value="${existingStudent?.Grade || 'ม.3/1'}">
+                </div>
+                <div>
+                  <label class="font-bold text-slate-700 block mb-1">อีเมล (ไม่บังคับกรอก)</label>
+                  <input id="swal-st-email" type="email" class="w-full p-2 border rounded-lg" placeholder="ว่างไว้ได้" value="${existingStudent?.Email || ''}">
+                </div>
+              </div>
+              <div>
+                <label class="font-bold text-slate-700 block mb-1">กำหนดสิทธิ์เข้าถึงรายวิชา (Granular Access Control)</label>
+                <div class="space-y-1 max-h-32 overflow-y-auto p-1">${courseCheckboxesHtml || '<p class="text-slate-400">ยังไม่มีรายวิชา</p>'}</div>
+              </div>
             </div>
           `,
           showCancelButton: true,
+          confirmButtonText: 'บันทึกข้อมูล',
+          cancelButtonText: 'ยกเลิก',
           confirmButtonColor: '#4f46e5',
           preConfirm: () => {
-            const studentId = document.getElementById('swal-st-id').value;
-            const pin = document.getElementById('swal-st-pin').value;
-            const name = document.getElementById('swal-st-name').value;
-            const email = document.getElementById('swal-st-email').value;
-            const grade = document.getElementById('swal-st-grade').value;
-            const allowed = document.getElementById('swal-st-courses').value;
+            const studentId = document.getElementById('swal-st-id').value.trim();
+            const pin = document.getElementById('swal-st-pin').value.trim();
+            const name = document.getElementById('swal-st-name').value.trim();
+            const email = document.getElementById('swal-st-email').value.trim();
+            const grade = document.getElementById('swal-st-grade').value.trim();
+            const checkedBoxes = Array.from(document.querySelectorAll('.swal-course-cb:checked')).map(cb => cb.value);
+
             if (!studentId || !name) {
-              Swal.showValidationMessage('กรุณากรอกรหัสนักเรียนและชื่อ');
+              Swal.showValidationMessage('กรุณากรอกรหัสนักเรียนและชื่อ-นามสกุล');
               return false;
             }
-            return { studentId, pin, name, email, grade, allowed };
+            return { studentId, pin, name, email, grade, allowed: checkedBoxes.join(',') };
           }
         });
 
         if (formValues) {
-          const newStudent = {
-            ID: 'ST_' + Date.now().toString().slice(-6),
+          const studentRecord = {
+            ID: existingStudent ? existingStudent.ID : ('ST_' + Date.now().toString().slice(-6)),
             StudentID: formValues.studentId,
             PIN: formValues.pin || '1234',
             Name: formValues.name,
             Email: formValues.email || '',
             Grade: formValues.grade,
             AllowedCourses: formValues.allowed,
-            CreatedAt: new Date().toISOString().split('T')[0]
+            CreatedAt: existingStudent ? existingStudent.CreatedAt : new Date().toISOString().split('T')[0]
           };
-          onSaveStudent(newStudent);
-          Swal.fire({ icon: 'success', title: 'เพิ่มนักเรียนสำเร็จ', timer: 1200, showConfirmButton: false });
+          onSaveStudent(studentRecord);
+          Swal.fire({ icon: 'success', title: 'บันทึกข้อมูลนักเรียนสำเร็จ', timer: 1200, showConfirmButton: false });
         }
       };
 
@@ -2214,7 +2721,7 @@
                 Name: cols[2] || 'นักเรียน',
                 Email: cols[3] || '',
                 Grade: cols[4] || '',
-                AllowedCourses: cols[5] || '',
+                AllowedCourses: cols.slice(5).join(',').replace(/^["']|["']$/g, '') || '',
                 CreatedAt: new Date().toISOString().split('T')[0]
               });
             }
@@ -2225,7 +2732,6 @@
             return;
           }
 
-          // Chunking into groups of 50 to avoid GAS script timeout
           const CHUNK_SIZE = 50;
           const totalChunks = Math.ceil(parsedStudents.length / CHUNK_SIZE);
 
@@ -2253,6 +2759,7 @@
             text: `บันทึกข้อมูลนักเรียนทั้งหมด ${parsedStudents.length} คนเรียบร้อยแล้ว`,
             confirmButtonColor: '#4f46e5'
           });
+          e.target.value = '';
         };
         reader.readAsText(file);
       };
@@ -2264,9 +2771,16 @@
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold text-slate-900">จัดการข้อมูลนักเรียน (Students Management)</h2>
-              <p className="text-xs text-slate-500 mt-0.5">รองรับการนำเข้าจำนวนมากด้วยเทคนิค CSV Chunking</p>
+              <p className="text-xs text-slate-500 mt-0.5">กำหนดสิทธิ์รายวิชาแบบรายบุคคล หรือนำเข้าจำนวนมากผ่าน CSV</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleDownloadCsvTemplate}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl transition"
+              >
+                <Icon name="DownloadCloud" size={15} />
+                <span>โหลดไฟล์ตัวอย่าง CSV</span>
+              </button>
               <button
                 onClick={() => csvInputRef.current && csvInputRef.current.click()}
                 className="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition shadow-sm"
@@ -2275,7 +2789,7 @@
                 <span>นำเข้าไฟล์ CSV</span>
               </button>
               <button
-                onClick={handleAddStudent}
+                onClick={() => handleOpenStudentModal(null)}
                 className="inline-flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm"
               >
                 <Icon name="Plus" size={16} />
@@ -2305,7 +2819,7 @@
                     <th className="py-2.5">ชื่อ-นามสกุล</th>
                     <th className="py-2.5">ระดับชั้น</th>
                     <th className="py-2.5">อีเมล</th>
-                    <th className="py-2.5">สิทธิ์วิชาเรียน</th>
+                    <th className="py-2.5">สิทธิ์วิชาเรียน (AllowedCourses)</th>
                     <th className="py-2.5 text-right">จัดการ</th>
                   </tr>
                 </thead>
@@ -2319,120 +2833,42 @@
                       <td className="py-3 text-slate-500">{st.Email || '-'}</td>
                       <td className="py-3">
                         <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[11px] font-medium">
-                          {st.AllowedCourses || 'ทั้งหมด'}
+                          {st.AllowedCourses || 'ยังไม่ได้กำหนดวิชา'}
                         </span>
                       </td>
                       <td className="py-3 text-right">
-                        <button
-                          onClick={() => {
-                            Swal.fire({
-                              title: 'ลบนักเรียนคนนี้?',
-                              text: `รหัส ${st.StudentID} (${st.Name})`,
-                              icon: 'warning',
-                              showCancelButton: true,
-                              confirmButtonColor: '#ef4444'
-                            }).then(res => {
-                              if (res.isConfirmed) onDeleteStudent(st.StudentID);
-                            });
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
-                        >
-                          <Icon name="Trash2" size={15} />
-                        </button>
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            onClick={() => handleOpenStudentModal(st)}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition"
+                            title="แก้ไขข้อมูล / สิทธิ์รายวิชา"
+                          >
+                            <Icon name="Edit" size={15} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              Swal.fire({
+                                title: 'ลบนักเรียนคนนี้?',
+                                text: `รหัส ${st.StudentID} (${st.Name})`,
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#ef4444'
+                              }).then(res => {
+                                if (res.isConfirmed) onDeleteStudent(st.StudentID);
+                              });
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                            title="ลบนักเรียน"
+                          >
+                            <Icon name="Trash2" size={15} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      );
-    }
-
-    function TeachersManagementView({ teachers, onSaveTeacher, onDeleteTeacher }) {
-      const handleAddTeacher = async () => {
-        const { value: formValues } = await Swal.fire({
-          title: 'เพิ่มข้อมูลครูผู้สอน',
-          html: `
-            <div class="text-left space-y-2 text-xs">
-              <label class="font-bold text-slate-700">รหัสครู (TeacherID)</label>
-              <input id="swal-t-id" class="w-full p-2 border rounded-lg" placeholder="เช่น T103">
-              <label class="font-bold text-slate-700">ชื่อ-นามสกุล</label>
-              <input id="swal-t-name" class="w-full p-2 border rounded-lg" placeholder="เช่น ครูอารีย์ วิทยา">
-              <label class="font-bold text-slate-700">อีเมล (สำหรับ Login)</label>
-              <input id="swal-t-email" type="email" class="w-full p-2 border rounded-lg" placeholder="aree@school.ac.th">
-              <label class="font-bold text-slate-700">รหัสผ่าน</label>
-              <input id="swal-t-pass" class="w-full p-2 border rounded-lg" value="123">
-              <label class="font-bold text-slate-700">กลุ่มสาระการเรียนรู้</label>
-              <input id="swal-t-dept" class="w-full p-2 border rounded-lg" placeholder="เช่น ภาษาต่างประเทศ">
-            </div>
-          `,
-          showCancelButton: true,
-          confirmButtonColor: '#4f46e5',
-          preConfirm: () => {
-            const teacherId = document.getElementById('swal-t-id').value;
-            const name = document.getElementById('swal-t-name').value;
-            const email = document.getElementById('swal-t-email').value;
-            const password = document.getElementById('swal-t-pass').value;
-            const department = document.getElementById('swal-t-dept').value;
-            if (!teacherId || !name || !email) {
-              Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบถ้วน');
-              return false;
-            }
-            return { teacherId, name, email, password, department };
-          }
-        });
-
-        if (formValues) {
-          const newTeacher = {
-            TeacherID: formValues.teacherId,
-            Name: formValues.name,
-            Email: formValues.email,
-            Password: formValues.password,
-            Department: formValues.department,
-            CreatedAt: new Date().toISOString().split('T')[0]
-          };
-          onSaveTeacher(newTeacher);
-          Swal.fire({ icon: 'success', title: 'เพิ่มข้อมูลครูเรียบร้อย', timer: 1200, showConfirmButton: false });
-        }
-      };
-
-      return (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">จัดการครูผู้สอน (Teachers Management)</h2>
-              <p className="text-xs text-slate-500 mt-0.5">เพิ่ม ลบ หรือแก้ไขสิทธิ์การสอนของครูในโรงเรียน</p>
-            </div>
-            <button
-              onClick={handleAddTeacher}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm"
-            >
-              <Icon name="Plus" size={16} />
-              <span>เพิ่มครูผู้สอน</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {teachers.map(t => (
-              <div key={t.TeacherID} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">{t.TeacherID}</span>
-                    <h3 className="font-bold text-slate-800 text-sm">{t.Name}</h3>
-                  </div>
-                  <p className="text-xs text-slate-500">{t.Department || 'ไม่ระบุกลุ่มสาระ'}</p>
-                  <p className="text-xs text-slate-400 mt-2">Email: {t.Email} • รหัสผ่าน: {t.Password}</p>
-                </div>
-                <button
-                  onClick={() => onDeleteTeacher(t.TeacherID)}
-                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
-                >
-                  <Icon name="Trash2" size={16} />
-                </button>
-              </div>
-            ))}
           </div>
         </div>
       );
@@ -2447,88 +2883,143 @@
         } catch {}
       }
 
+      const adminPassSetting = settings.find(s => s.SettingKey === 'AdminPassword');
+      let initPass = 'admin1234';
+      if (adminPassSetting && adminPassSetting.SettingValueJSON) {
+        try { initPass = JSON.parse(adminPassSetting.SettingValueJSON); } catch { initPass = adminPassSetting.SettingValueJSON; }
+      }
+
+      const driveSetting = settings.find(s => s.SettingKey === 'DriveFolderID');
+      let initDriveId = '';
+      if (driveSetting && driveSetting.SettingValueJSON) {
+        try { initDriveId = JSON.parse(driveSetting.SettingValueJSON); } catch { initDriveId = driveSetting.SettingValueJSON; }
+      }
+
       const [enabled, setEnabled] = useState(annData.enabled ?? true);
       const [title, setTitle] = useState(annData.title || '');
       const [content, setContent] = useState(annData.content || '');
       const [badge, setBadge] = useState(annData.badge || 'ประกาศโรงเรียน');
+      const [adminPassword, setAdminPassword] = useState(initPass);
+      const [driveFolderId, setDriveFolderId] = useState(initDriveId);
 
-      const handleSaveAnnouncement = () => {
-        const payload = {
-          enabled,
-          title,
-          content,
-          badge
-        };
+      const handleSaveAllSettings = async () => {
+        const now = new Date().toISOString();
 
-        const record = {
+        await onSaveSetting({
           SettingKey: 'Announcement',
-          SettingValueJSON: JSON.stringify(payload),
-          UpdatedAt: new Date().toISOString()
-        };
+          SettingValueJSON: JSON.stringify({ enabled, title, content, badge }),
+          UpdatedAt: now
+        });
 
-        onSaveSetting(record);
+        await onSaveSetting({
+          SettingKey: 'AdminPassword',
+          SettingValueJSON: JSON.stringify(adminPassword.trim() || 'admin1234'),
+          UpdatedAt: now
+        });
+
+        await onSaveSetting({
+          SettingKey: 'DriveFolderID',
+          SettingValueJSON: JSON.stringify(driveFolderId.trim()),
+          UpdatedAt: now
+        });
+
         Swal.fire({
           icon: 'success',
-          title: 'บันทึกประกาศสำเร็จ',
-          text: 'ป๊อปอัปจะแสดงผลต่อนักเรียนและครูทุกคนเมื่อเข้าสู่ระบบ',
-          timer: 1500,
+          title: 'บันทึกการตั้งค่าทั้งหมดสำเร็จ',
+          text: 'อัปเดตประกาศ รหัสผ่านผู้ดูแล และโฟลเดอร์ Google Drive เรียบร้อยแล้ว',
+          timer: 1800,
           showConfirmButton: false
         });
       };
 
       return (
-        <div className="max-w-2xl bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">ตั้งค่าประกาศสำคัญของโรงเรียน (Popup Announcement)</h2>
-            <p className="text-xs text-slate-500 mt-1">กำหนดข้อความป๊อปอัปที่จะเด้งเตือนเมื่อผู้ใช้งานทุกคนเปิดเข้าสู่ระบบ</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-5">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">1. ตั้งค่าป๊อปอัปประกาศโรงเรียน (Popup Announcement)</h2>
+              <p className="text-xs text-slate-500 mt-0.5">แสดงป๊อปอัปแจ้งเตือนอัตโนมัติเมื่อนักเรียนและครูเข้าสู่ระบบ</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-xs font-bold text-slate-700">เปิดแสดงผลป๊อปอัปประกาศ</span>
+                <input
+                  type="checkbox"
+                  checked={enabled}
+                  onChange={(e) => setEnabled(e.target.checked)}
+                  className="w-5 h-5 text-indigo-600 rounded cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">ป้ายกำกับ (Badge)</label>
+                <input
+                  type="text"
+                  value={badge}
+                  onChange={(e) => setBadge(e.target.value)}
+                  className="w-full p-2.5 text-xs border border-slate-200 rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">หัวข้อประกาศ</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full p-2.5 text-xs border border-slate-200 rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">เนื้อหาประกาศ</label>
+                <textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  rows="4"
+                  className="w-full p-2.5 text-xs border border-slate-200 rounded-xl"
+                ></textarea>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-xs font-bold text-slate-700">เปิดใช้งานป๊อปอัปประกาศ</span>
-              <input
-                type="checkbox"
-                checked={enabled}
-                onChange={(e) => setEnabled(e.target.checked)}
-                className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
-              />
-            </div>
+          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs flex flex-col justify-between space-y-6">
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">2. ตั้งค่าระบบและความปลอดภัย (System & Drive)</h2>
+                <p className="text-xs text-slate-500 mt-0.5">จัดการรหัสผ่าน Admin และโฟลเดอร์ปลายทางสำหรับเก็บไฟล์การบ้าน</p>
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">ป้ายกำกับ (Badge)</label>
-              <input
-                type="text"
-                value={badge}
-                onChange={(e) => setBadge(e.target.value)}
-                className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:outline-hidden focus:border-indigo-500"
-              />
-            </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">รหัสผ่านผู้ดูแลระบบ (AdminPassword)</label>
+                <input
+                  type="text"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  className="w-full p-2.5 text-xs border border-slate-200 rounded-xl font-mono"
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">หัวข้อประกาศ</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:outline-hidden focus:border-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">เนื้อหาประกาศ</label>
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows="4"
-                className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:outline-hidden focus:border-indigo-500"
-              ></textarea>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Google Drive Folder ID (สำหรับเก็บไฟล์ส่งงาน)</label>
+                <input
+                  type="text"
+                  placeholder="เว้นว่างไว้เพื่อสร้างโฟลเดอร์ EduPortal_Submissions อัตโนมัติ"
+                  value={driveFolderId}
+                  onChange={(e) => setDriveFolderId(e.target.value)}
+                  className="w-full p-2.5 text-xs border border-slate-200 rounded-xl font-mono"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  * หากเว้นว่างไว้ ระบบจะสร้างโฟลเดอร์ชื่อ <code>EduPortal_Submissions</code> ใน Google Drive ของคุณครูให้อัตโนมัติ
+                </p>
+              </div>
             </div>
 
             <button
-              onClick={handleSaveAnnouncement}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition"
+              onClick={handleSaveAllSettings}
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-md transition"
             >
-              บันทึกการตั้งค่าประกาศ
+              บันทึกการตั้งค่าระบบทั้งหมด
             </button>
           </div>
         </div>
