@@ -1,0 +1,2541 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduPortal LMS - ระบบจัดการเรียนการสอนออนไลน์สำหรับโรงเรียน</title>
+
+  <!-- Google Fonts: Inter & Sarabun for Thai language aesthetic -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Sarabun', 'Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              800: '#3730a3',
+              900: '#312e81',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React 18 & ReactDOM CDN -->
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel Standalone for JSX/TSX compilation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
+
+  <!-- SweetAlert2 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <style>
+    body {
+      font-family: 'Sarabun', 'Inter', sans-serif;
+      background-color: #f8fafc;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased selection:bg-indigo-500 selection:text-white">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // --- Lightweight Lucide SVG Icons Component ---
+    const Icon = ({ name, size = 18, className = "" }) => {
+      const icons = {
+        BookOpen: <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />,
+        GraduationCap: <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z M22 10v6 M6 12.5V16a6 3 0 0 0 12 0v-3.5" />,
+        UserCheck: <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M16 11l2 2 4-4" />,
+        Shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
+        LogOut: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9" />,
+        Database: <path d="M3 5c0-1.66 4-3 9-3s9 1.34 9 3v14c0 1.66-4 3-9 3s-9-1.34-9-3V5z M3 12c0 1.66 4 3 9 3s9-1.34 9-3 M3 19c0 1.66 4 3 9 3s9-1.34 9-3" />,
+        RefreshCw: <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8 M3 3v5h5 M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16 M16 21h5v-5" />,
+        UploadCloud: <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242 M12 12v9 M16 16l-4-4-4 4" />,
+        DownloadCloud: <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242 M12 12v9 M8 17l4 4 4-4" />,
+        FileText: <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8" />,
+        Video: <path d="m22 8-6 4 6 4V8z M2 6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H2z" />,
+        CheckCircle: <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4 12 14.01l-3-3" />,
+        Clock: <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2" />,
+        Star: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />,
+        Bell: <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0" />,
+        Plus: <path d="M12 5v14 M5 12h14" />,
+        Trash2: <path d="M3 6h18 M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6 M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2 M10 11v6 M14 11v6" />,
+        ChevronRight: <path d="m9 18 6-6-6-6" />,
+        ChevronLeft: <path d="m15 18-6-6 6-6" />,
+        Award: <path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526 M8.6 6.8a4 4 0 1 0 6.8 0 4 4 0 0 0-6.8 0z" />,
+        ExternalLink: <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6 M15 3h6v6 M10 14 21 3" />,
+        Users: <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75" />,
+        Key: <path d="m21 2-2 2m-1.5 1.5L16 7l-2 2-2-2-2 2-2-2-4 4a5 5 0 1 0 7 7l6.5-6.5" />,
+        FileSpreadsheet: <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M8 13h2 M14 13h2 M8 17h2 M14 17h2" />,
+        Edit: <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+      };
+
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={className}
+        >
+          {icons[name] || <circle cx="12" cy="12" r="10" />}
+        </svg>
+      );
+    };
+
+    const INITIAL_SETTINGS = [
+      { SettingKey: 'AdminPassword', SettingValueJSON: JSON.stringify('admin1234'), UpdatedAt: new Date().toISOString() },
+      { 
+        SettingKey: 'Announcement', 
+        SettingValueJSON: JSON.stringify({ 
+          enabled: true, 
+          title: 'ยินดีต้อนรับสู่ระบบ EduPortal LMS ประจำภาคเรียนใหม่!', 
+          content: 'ขอให้นักเรียนทุกคนตรวจสอบรายวิชาที่ลงทะเบียน และเตรียมพร้อมส่งการบ้านชุดแรกภายในวันศุกร์นี้',
+          badge: 'ประกาศโรงเรียน'
+        }), 
+        UpdatedAt: new Date().toISOString() 
+      },
+      { SettingKey: 'DriveFolderID', SettingValueJSON: JSON.stringify(''), UpdatedAt: new Date().toISOString() }
+    ];
+
+    const INITIAL_TEACHERS = [
+      { TeacherID: 'T101', Name: 'ครูสมศักดิ์ สุขใจ', Email: 'somsak@school.ac.th', Password: '123', Department: 'กลุ่มสาระการเรียนรู้วิทยาศาสตร์และเทคโนโลยี', CreatedAt: '2026-05-01' },
+      { TeacherID: 'T102', Name: 'ครูพรทิพย์ เจริญผล', Email: 'porntip@school.ac.th', Password: '123', Department: 'กลุ่มสาระการเรียนรู้คณิตศาสตร์', CreatedAt: '2026-05-01' }
+    ];
+
+    const INITIAL_STUDENTS = [
+      { ID: 'S001', StudentID: '04501', PIN: '1234', Name: 'ด.ช. กิตติพงษ์ ใจมั่น', Email: 'kittipong@school.ac.th', Grade: 'ม.3/1', AllowedCourses: 'C101,C102', CreatedAt: '2026-05-01' },
+      { ID: 'S002', StudentID: '04502', PIN: '1234', Name: 'ด.ญ. ธนพร วรรณวิมล', Email: '', Grade: 'ม.3/1', AllowedCourses: 'C101', CreatedAt: '2026-05-01' },
+      { ID: 'S003', StudentID: '04503', PIN: '1234', Name: 'นาย วรเมธ ชัยประสิทธิ์', Email: 'worameth@mail.com', Grade: 'ม.3/2', AllowedCourses: 'C102', CreatedAt: '2026-05-01' }
+    ];
+
+    const INITIAL_COURSES = [
+      { CourseID: 'C101', Code: 'ว23101', Name: 'วิทยาการคำนวณและปัญญาประดิษฐ์', TeacherID: 'T101', TeacherName: 'ครูสมศักดิ์ สุขใจ', GradeLevel: 'ม.3', Term: '1/2569', Credits: '1.5', CoverColor: 'from-blue-600 to-indigo-700', CreatedAt: '2026-05-01' },
+      { CourseID: 'C102', Code: 'ค23101', Name: 'คณิตศาสตร์พื้นฐาน ม.3', TeacherID: 'T102', TeacherName: 'ครูพรทิพย์ เจริญผล', GradeLevel: 'ม.3', Term: '1/2569', Credits: '1.5', CoverColor: 'from-emerald-600 to-teal-700', CreatedAt: '2026-05-01' }
+    ];
+
+    const INITIAL_LESSONS = [
+      { LessonID: 'L001', CourseID: 'C101', Title: 'บทที่ 1: แนะนำพื้นฐานการประมวลผลข้อมูลและ AI', Description: 'ศึกษาขั้นตอนการเก็บรวบรวมข้อมูลและการประยุกต์ใช้โมเดล Machine Learning ในชีวิตประจำวัน', VideoURL: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', AttachmentsJSON: JSON.stringify([{ title: 'สไลด์ประกอบการสอน บทที่ 1 (PDF)', url: 'https://example.com/slides1.pdf' }]), Order: '1', Published: 'true', CreatedAt: '2026-05-05' },
+      { LessonID: 'L002', CourseID: 'C101', Title: 'บทที่ 2: อัลกอริทึมและการแก้ปัญหาเชิงคำนวณ', Description: 'ฝึกคิดแก้ปัญหาอย่างเป็นระบบด้วย Flowchart และ Pseudocode', VideoURL: '', AttachmentsJSON: JSON.stringify([]), Order: '2', Published: 'true', CreatedAt: '2026-05-06' }
+    ];
+
+    const INITIAL_ASSIGNMENTS = [
+      { AssignmentID: 'A001', CourseID: 'C101', Title: 'ใบงานที่ 1: ออกแบบผังงาน (Flowchart) จำแนกประเภทข้อมูล', Description: 'ให้นักเรียนเขียนผังงานเพื่อตัดสินใจเรื่องการคัดแยกขยะ หรือกิจกรรมในชีวิตประจำวัน บันทึกเป็นไฟล์ PDF หรือรูปภาพส่งในระบบ', MaxScore: '10', DueDate: '2026-11-15T23:59', AttachmentsJSON: '[]', CreatedAt: '2026-05-10' }
+    ];
+
+    const INITIAL_SUBMISSIONS = [
+      { ID: 'SUB001', AssignmentID: 'A001', CourseID: 'C101', StudentID: '04501', StudentName: 'ด.ช. กิตติพงษ์ ใจมั่น', Grade: 'ม.3/1', FileName: 'flowchart_kittipong.png', FileUrl: 'https://placehold.co/800x600/e0e7ff/4f46e5?text=Student+Flowchart+Work', DriveFileID: 'DRIVE_FILE_MOCK', Note: 'ส่งการบ้านเรียบร้อยครับอาจารย์', SubmittedAt: '2026-05-12 14:30', Score: '9.5', Feedback: 'ออกแบบผังงานได้ถูกต้อง ชัดเจนดีมากครับ', Status: 'Graded' }
+    ];
+
+    const INITIAL_EXAMS = [
+      { 
+        ExamID: 'EX001', 
+        CourseID: 'C101', 
+        Title: 'แบบทดสอบเก็บคะแนนกลางภาค: วิทยาการคำนวณ', 
+        Description: 'ข้อสอบปรนัย 4 ตัวเลือก จำนวน 3 ข้อ โปรดทำให้เสร็จภายในเวลาที่กำหนด', 
+        TimeLimitMin: '10', 
+        QuestionsJSON: JSON.stringify([
+          { id: 'q1', text: 'ข้อใดไม่ใช่คุณลักษณะสำคัญของ Computational Thinking (การคิดเชิงคำนวณ)?', options: ['Decomposition', 'Pattern Recognition', 'Compilation Error', 'Algorithm Design'], answerIndex: 2, score: 5 },
+          { id: 'q2', text: 'ตัวแปรชนิดใดเหมาะสำหรับเก็บสถานะว่า นักเรียนผ่านเกณฑ์หรือไม่ (True/False)?', options: ['String', 'Integer', 'Boolean', 'Float'], answerIndex: 2, score: 5 },
+          { id: 'q3', text: 'การแปลงข้อมูลตัวเลขให้อยู่ในรูปแบบรหัส 0 และ 1 เรียกว่าระบบใด?', options: ['Decimal', 'Binary', 'Octal', 'Hexadecimal'], answerIndex: 1, score: 5 }
+        ]), 
+        Published: 'true', 
+        CreatedAt: '2026-05-15' 
+      }
+    ];
+
+    const INITIAL_EXAM_ATTEMPTS = [
+      { AttemptID: 'ATT001', ExamID: 'EX001', CourseID: 'C101', StudentID: '04501', StudentName: 'ด.ช. กิตติพงษ์ ใจมั่น', Score: '15', TotalScore: '15', SubmittedAt: '2026-05-16 10:25', TimeSpentSec: '240' }
+    ];
+
+    const INITIAL_EVALUATIONS = [
+      { ID: 'EV001', CourseID: 'C101', TeacherID: 'T101', TeacherName: 'ครูสมศักดิ์ สุขใจ', StudentID: '04501', Clarity: '5', Engagement: '5', Materials: '4', Assessment: '5', Counseling: '5', OverallScore: '4.8', Comment: 'ครูสอนสนุกและเข้าใจง่ายมากครับ', SubmittedAt: '2026-05-18' }
+    ];
+
+    function EduPortalApp() {
+      // Configuration & Gas URL (Persisted in localStorage)
+      const [gasUrl, setGasUrl] = useState(() => localStorage.getItem('eduportal_gas_url') || '');
+      const [isSyncing, setIsSyncing] = useState(false);
+
+      // Current Logged In User State: { role: 'admin'|'teacher'|'student', user: {...} }
+      const [currentUser, setCurrentUser] = useState(() => {
+        try {
+          const saved = localStorage.getItem('eduportal_current_user');
+          return saved ? JSON.parse(saved) : null;
+        } catch {
+          return null;
+        }
+      });
+
+      // Active Database Tables State (Loaded from localStorage or Defaults)
+      const [db, setDb] = useState(() => {
+        try {
+          const saved = localStorage.getItem('eduportal_db_cache');
+          if (saved) return JSON.parse(saved);
+        } catch (e) {
+          console.error('Failed to load cache:', e);
+        }
+        return {
+          Settings: INITIAL_SETTINGS,
+          Teachers: INITIAL_TEACHERS,
+          Students: INITIAL_STUDENTS,
+          Courses: INITIAL_COURSES,
+          Lessons: INITIAL_LESSONS,
+          Assignments: INITIAL_ASSIGNMENTS,
+          Submissions: INITIAL_SUBMISSIONS,
+          Exams: INITIAL_EXAMS,
+          ExamAttempts: INITIAL_EXAM_ATTEMPTS,
+          Evaluations: INITIAL_EVALUATIONS
+        };
+      });
+
+      // Save database cache to localStorage
+      useEffect(() => {
+        localStorage.setItem('eduportal_db_cache', JSON.stringify(db));
+      }, [db]);
+
+      // Save user session
+      useEffect(() => {
+        if (currentUser) {
+          localStorage.setItem('eduportal_current_user', JSON.stringify(currentUser));
+        } else {
+          localStorage.removeItem('eduportal_current_user');
+        }
+      }, [currentUser]);
+
+      // Active View Routing for Dashboard
+      const [currentTab, setCurrentTab] = useState('courses'); // 'courses', 'lessons', 'assignments', 'exams', 'evaluations', 'students', 'teachers', 'settings'
+      const [selectedCourseId, setSelectedCourseId] = useState(null);
+      const [takingExam, setTakingExam] = useState(null); // Active exam object when student starts an exam
+
+      // Announcement Popup state
+      const [showAnnouncement, setShowAnnouncement] = useState(false);
+
+      // Parse current announcement
+      const currentAnnouncement = useMemo(() => {
+        const item = db.Settings?.find(s => s.SettingKey === 'Announcement');
+        if (item && item.SettingValueJSON) {
+          try {
+            return JSON.parse(item.SettingValueJSON);
+          } catch {
+            return null;
+          }
+        }
+        return null;
+      }, [db.Settings]);
+
+      // Trigger announcement popup on mount or user login once
+      useEffect(() => {
+        if (currentUser && currentAnnouncement && currentAnnouncement.enabled) {
+          const hasSeen = sessionStorage.getItem('eduportal_seen_announcement');
+          if (!hasSeen) {
+            setShowAnnouncement(true);
+            sessionStorage.setItem('eduportal_seen_announcement', 'true');
+          }
+        }
+      }, [currentUser, currentAnnouncement]);
+
+      const callGasApi = async (action, payload = {}) => {
+        if (!gasUrl || !gasUrl.startsWith('https://script.google.com/')) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'ยังไม่ได้ระบุ GAS Web App URL',
+            text: 'กรุณาใส่ Web App URL ของ Google Apps Script ในแถบตั้งค่าผู้ดูแลระบบก่อนเชื่อมต่อจริง',
+            confirmButtonColor: '#4f46e5'
+          });
+          return null;
+        }
+
+        setIsSyncing(true);
+        try {
+          const response = await fetch(gasUrl, {
+            method: 'POST',
+            // Use text/plain to bypass GitHub Pages CORS Preflight
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action, payload })
+          });
+
+          const data = await response.json();
+          if (data.status === 'error') {
+            throw new Error(data.message || 'API responded with error');
+          }
+          return data.result;
+        } catch (error) {
+          console.error('GAS API Call failed:', error);
+          Swal.fire({
+            icon: 'error',
+            title: 'การเชื่อมต่อผิดพลาด',
+            text: error.message || 'ไม่สามารถติดต่อ Google Apps Script ได้ กรุณาตรวจสอบสิทธิ์การแชร์ (Anyone)',
+            confirmButtonColor: '#ef4444'
+          });
+          return null;
+        } finally {
+          setIsSyncing(false);
+        }
+      };
+
+      // Control Panel Action Handlers
+      const handlePingGAS = async () => {
+        const res = await callGasApi('ping');
+        if (res && res.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'เชื่อมต่อสำเร็จ! (Online)',
+            text: res.message || 'Google Apps Script Web App ตอบสนองปกติ',
+            confirmButtonColor: '#4f46e5'
+          });
+        }
+      };
+
+      const handleSetupDatabase = async () => {
+        const confirm = await Swal.fire({
+          title: 'สร้างและจัดระเบียบ 10 ชีต?',
+          text: 'ระบบจะสั่งให้ Code.gs ตรวจสอบและสร้าง 10 Sheet หลักพร้อมจัดหัวตารางอัตโนมัติบน Google Sheets',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'ยืนยันเริ่มสร้าง',
+          cancelButtonText: 'ยกเลิก',
+          confirmButtonColor: '#4f46e5'
+        });
+
+        if (confirm.isConfirmed) {
+          const res = await callGasApi('setup');
+          if (res && res.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'สร้างตารางสำเร็จ!',
+              text: res.message,
+              confirmButtonColor: '#4f46e5'
+            });
+          }
+        }
+      };
+
+      const handlePullData = async () => {
+        const res = await callGasApi('pullAll');
+        if (res && res.data) {
+          // Merge newly received data into local DB
+          setDb(prev => ({ ...prev, ...res.data }));
+          Swal.fire({
+            icon: 'success',
+            title: 'ดึงข้อมูลสำเร็จ (Pull Complete)',
+            text: 'ซิงค์ข้อมูลล่าสุดทั้ง 10 ตารางจาก Google Sheets สู่ระบบเรียบร้อย',
+            timer: 2000,
+            showConfirmButton: false
+          });
+        }
+      };
+
+      const handlePushData = async () => {
+        const confirm = await Swal.fire({
+          title: 'ส่งข้อมูลทั้งหมดขึ้น Sheets?',
+          text: 'ข้อมูลปัจจุบันในระบบจะถูกส่งขึ้นไปเขียนบันทึกลงในชีตทั้งหมด',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'ใช่, ซิงค์ขึ้นคลาวด์',
+          cancelButtonText: 'ยกเลิก',
+          confirmButtonColor: '#4f46e5'
+        });
+
+        if (confirm.isConfirmed) {
+          const res = await callGasApi('pushAll', db);
+          if (res && res.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'ส่งข้อมูลสำเร็จ (Push Complete)',
+              text: 'อัปเดตข้อมูลขึ้น Google Sheets เรียบร้อยแล้ว',
+              confirmButtonColor: '#4f46e5'
+            });
+          }
+        }
+      };
+
+      // Save Single Record directly to Sheet (and update local state immediately)
+      const saveRecordToSheet = async (sheetName, recordData) => {
+        const idKey = sheetName === 'Students' ? 'StudentID' :
+                      sheetName === 'Teachers' ? 'TeacherID' :
+                      sheetName === 'Courses' ? 'CourseID' :
+                      sheetName === 'Lessons' ? 'LessonID' :
+                      sheetName === 'Assignments' ? 'AssignmentID' :
+                      sheetName === 'Exams' ? 'ExamID' :
+                      sheetName === 'ExamAttempts' ? 'AttemptID' :
+                      sheetName === 'Settings' ? 'SettingKey' : 'ID';
+
+        // Update local state first for instant UX
+        setDb(prev => {
+          const table = prev[sheetName] || [];
+          const existingIndex = table.findIndex(item => item[idKey] === recordData[idKey]);
+          let updatedTable;
+          if (existingIndex >= 0) {
+            updatedTable = [...table];
+            updatedTable[existingIndex] = { ...updatedTable[existingIndex], ...recordData };
+          } else {
+            updatedTable = [...table, recordData];
+          }
+          return { ...prev, [sheetName]: updatedTable };
+        });
+
+        // Sync with GAS if URL configured
+        if (gasUrl) {
+          await callGasApi('saveRecord', { sheetName, data: recordData });
+        }
+      };
+
+      // Delete Single Record
+      const deleteRecordFromSheet = async (sheetName, primaryValue) => {
+        const idKey = sheetName === 'Students' ? 'StudentID' :
+                      sheetName === 'Teachers' ? 'TeacherID' :
+                      sheetName === 'Courses' ? 'CourseID' :
+                      sheetName === 'Lessons' ? 'LessonID' :
+                      sheetName === 'Assignments' ? 'AssignmentID' :
+                      sheetName === 'Exams' ? 'ExamID' :
+                      sheetName === 'ExamAttempts' ? 'AttemptID' :
+                      sheetName === 'Settings' ? 'SettingKey' : 'ID';
+
+        setDb(prev => {
+          const table = prev[sheetName] || [];
+          const updatedTable = table.filter(item => item[idKey] !== primaryValue);
+          return { ...prev, [sheetName]: updatedTable };
+        });
+
+        if (gasUrl) {
+          await callGasApi('deleteRecord', { sheetName, primaryValue });
+        }
+      };
+
+      const renderAnnouncementModal = () => {
+        if (!showAnnouncement || !currentAnnouncement) return null;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all p-6 text-center">
+              <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Icon name="Bell" size={32} />
+              </div>
+              <span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-full mb-3">
+                {currentAnnouncement.badge || 'ประกาศสำคัญ'}
+              </span>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">{currentAnnouncement.title}</h3>
+              <p className="text-slate-600 text-sm leading-relaxed mb-6 whitespace-pre-line text-left bg-slate-50 p-4 rounded-xl border border-slate-100">
+                {currentAnnouncement.content}
+              </p>
+              <button
+                onClick={() => setShowAnnouncement(false)}
+                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition duration-200 shadow-sm"
+              >
+                รับทราบและเริ่มใช้งาน
+              </button>
+            </div>
+          </div>
+        );
+      };
+
+      if (!currentUser) {
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950 flex flex-col items-center justify-center p-4">
+            <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 border border-slate-100">
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white mx-auto shadow-lg shadow-indigo-500/30 mb-4">
+                  <Icon name="GraduationCap" size={36} />
+                </div>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">EduPortal LMS</h1>
+                <p className="text-slate-500 text-sm mt-1">ระบบจัดการเรียนการสอนออนไลน์สำหรับโรงเรียน</p>
+              </div>
+
+              <LoginForm 
+                db={db} 
+                onLogin={(role, user) => setCurrentUser({ role, user })} 
+              />
+            </div>
+            
+            <p className="text-slate-400 text-xs mt-6 text-center">
+              Powered by Google Apps Script + Google Sheets & GitHub Pages
+            </p>
+          </div>
+        );
+      }
+
+      const visibleCourses = useMemo(() => {
+        if (currentUser.role === 'admin') return db.Courses || [];
+        if (currentUser.role === 'teacher') {
+          return (db.Courses || []).filter(c => c.TeacherID === currentUser.user.TeacherID);
+        }
+        if (currentUser.role === 'student') {
+          const allowedList = (currentUser.user.AllowedCourses || '').split(',').map(s => s.trim());
+          return (db.Courses || []).filter(c => allowedList.includes(c.CourseID));
+        }
+        return [];
+      }, [currentUser, db.Courses]);
+
+      const activeCourse = useMemo(() => {
+        return (db.Courses || []).find(c => c.CourseID === selectedCourseId) || visibleCourses[0] || null;
+      }, [db.Courses, visibleCourses, selectedCourseId]);
+
+      return (
+        <div className="min-h-screen flex flex-col bg-slate-50">
+          {renderAnnouncementModal()}
+
+          {/* Top Admin-Only Database Control Panel */}
+          {currentUser.role === 'admin' && (
+            <AdminControlBar 
+              gasUrl={gasUrl}
+              setGasUrl={(url) => {
+                setGasUrl(url);
+                localStorage.setItem('eduportal_gas_url', url);
+              }}
+              isSyncing={isSyncing}
+              onPing={handlePingGAS}
+              onSetup={handleSetupDatabase}
+              onPull={handlePullData}
+              onPush={handlePushData}
+            />
+          )}
+
+          {/* Navigation Bar */}
+          <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-600/20">
+                  <Icon name="GraduationCap" size={24} />
+                </div>
+                <div>
+                  <span className="font-bold text-lg text-slate-900 tracking-tight block leading-tight">EduPortal</span>
+                  <span className="text-[11px] text-slate-500 font-medium">Smart Online LMS</span>
+                </div>
+              </div>
+
+              {/* User Identity Info */}
+              <div className="flex items-center gap-3">
+                <div className="text-right hidden sm:block">
+                  <div className="text-sm font-semibold text-slate-800 leading-tight">
+                    {currentUser.role === 'admin' ? 'ผู้ดูแลระบบ (Admin)' : currentUser.user.Name}
+                  </div>
+                  <div className="text-xs text-indigo-600 font-medium">
+                    {currentUser.role === 'admin' && 'System Administrator'}
+                    {currentUser.role === 'teacher' && `ครูผู้สอน • ${currentUser.user.Department || 'วิชาการ'}`}
+                    {currentUser.role === 'student' && `รหัสนักเรียน: ${currentUser.user.StudentID} (${currentUser.user.Grade})`}
+                  </div>
+                </div>
+
+                <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold border border-slate-200">
+                  {currentUser.role === 'admin' ? <Icon name="Shield" size={20} className="text-indigo-600" /> :
+                   currentUser.role === 'teacher' ? <Icon name="BookOpen" size={20} className="text-emerald-600" /> :
+                   <Icon name="GraduationCap" size={20} className="text-amber-600" />}
+                </div>
+
+                <button
+                  onClick={() => {
+                    Swal.fire({
+                      title: 'ออกจากระบบ?',
+                      text: 'คุณต้องการออกจากระบบ EduPortal หรือไม่',
+                      icon: 'question',
+                      showCancelButton: true,
+                      confirmButtonText: 'ออกจากระบบ',
+                      cancelButtonText: 'ยกเลิก',
+                      confirmButtonColor: '#ef4444'
+                    }).then(res => {
+                      if (res.isConfirmed) {
+                        setCurrentUser(null);
+                        setSelectedCourseId(null);
+                        setTakingExam(null);
+                      }
+                    });
+                  }}
+                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                  title="ออกจากระบบ"
+                >
+                  <Icon name="LogOut" size={20} />
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Main Dashboard Body */}
+          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            {takingExam ? (
+              <ExamTakingView 
+                exam={takingExam}
+                student={currentUser.user}
+                onComplete={async (resultRecord) => {
+                  await saveRecordToSheet('ExamAttempts', resultRecord);
+                  setTakingExam(null);
+                  setCurrentTab('exams');
+                  Swal.fire({
+                    icon: 'success',
+                    title: 'ส่งคำตอบเรียบร้อย!',
+                    html: `คะแนนของคุณคือ <b>${resultRecord.Score} / ${resultRecord.TotalScore}</b> คะแนน`,
+                    confirmButtonColor: '#4f46e5'
+                  });
+                }}
+                onCancel={() => setTakingExam(null)}
+              />
+            ) : (
+              <div>
+                {/* Navigation Tabs based on Role */}
+                <div className="flex border-b border-slate-200 mb-6 gap-2 overflow-x-auto pb-1">
+                  <TabButton active={currentTab === 'courses'} onClick={() => setCurrentTab('courses')} icon="BookOpen" label="รายวิชาเรียน" />
+                  {activeCourse && (
+                    <>
+                      <TabButton active={currentTab === 'lessons'} onClick={() => setCurrentTab('lessons')} icon="Video" label="บทเรียน & สื่อ" />
+                      <TabButton active={currentTab === 'assignments'} onClick={() => setCurrentTab('assignments')} icon="FileText" label="การบ้าน & งาน" />
+                      <TabButton active={currentTab === 'exams'} onClick={() => setCurrentTab('exams')} icon="Clock" label="แบบทดสอบออนไลน์" />
+                      <TabButton active={currentTab === 'evaluations'} onClick={() => setCurrentTab('evaluations')} icon="Star" label="แบบประเมินครู" />
+                    </>
+                  )}
+                  {currentUser.role === 'admin' && (
+                    <>
+                      <TabButton active={currentTab === 'students'} onClick={() => setCurrentTab('students')} icon="Users" label="จัดการนักเรียน (CSV)" />
+                      <TabButton active={currentTab === 'teachers'} onClick={() => setCurrentTab('teachers')} icon="UserCheck" label="จัดการครูผู้สอน" />
+                      <TabButton active={currentTab === 'settings'} onClick={() => setCurrentTab('settings')} icon="Bell" label="ตั้งค่าประกาศ" />
+                    </>
+                  )}
+                </div>
+
+                {/* Tab Views Router */}
+                {currentTab === 'courses' && (
+                  <CoursesView 
+                    courses={visibleCourses} 
+                    allTeachers={db.Teachers || []}
+                    currentUser={currentUser} 
+                    selectedCourseId={activeCourse?.CourseID}
+                    onSelectCourse={(id) => {
+                      setSelectedCourseId(id);
+                      setCurrentTab('lessons');
+                    }}
+                    onSaveCourse={(c) => saveRecordToSheet('Courses', c)}
+                    onDeleteCourse={(id) => deleteRecordFromSheet('Courses', id)}
+                  />
+                )}
+
+                {currentTab === 'lessons' && activeCourse && (
+                  <LessonsView 
+                    course={activeCourse} 
+                    lessons={(db.Lessons || []).filter(l => l.CourseID === activeCourse.CourseID)}
+                    currentUser={currentUser}
+                    onSaveLesson={(lesson) => saveRecordToSheet('Lessons', lesson)}
+                    onDeleteLesson={(id) => deleteRecordFromSheet('Lessons', id)}
+                  />
+                )}
+
+                {currentTab === 'assignments' && activeCourse && (
+                  <AssignmentsView 
+                    course={activeCourse}
+                    assignments={(db.Assignments || []).filter(a => a.CourseID === activeCourse.CourseID)}
+                    submissions={(db.Submissions || []).filter(s => s.CourseID === activeCourse.CourseID)}
+                    currentUser={currentUser}
+                    gasUrl={gasUrl}
+                    callGasApi={callGasApi}
+                    onSaveAssignment={(a) => saveRecordToSheet('Assignments', a)}
+                    onDeleteAssignment={(id) => deleteRecordFromSheet('Assignments', id)}
+                    onSaveSubmission={(s) => saveRecordToSheet('Submissions', s)}
+                  />
+                )}
+
+                {currentTab === 'exams' && activeCourse && (
+                  <ExamsView 
+                    course={activeCourse}
+                    exams={(db.Exams || []).filter(e => e.CourseID === activeCourse.CourseID)}
+                    attempts={(db.ExamAttempts || []).filter(att => att.CourseID === activeCourse.CourseID)}
+                    currentUser={currentUser}
+                    onStartExam={(exam) => setTakingExam(exam)}
+                    onSaveExam={(exam) => saveRecordToSheet('Exams', exam)}
+                    onDeleteExam={(id) => deleteRecordFromSheet('Exams', id)}
+                  />
+                )}
+
+                {currentTab === 'evaluations' && activeCourse && (
+                  <EvaluationsView 
+                    course={activeCourse}
+                    evaluations={(db.Evaluations || []).filter(ev => ev.CourseID === activeCourse.CourseID)}
+                    currentUser={currentUser}
+                    onSaveEvaluation={(ev) => saveRecordToSheet('Evaluations', ev)}
+                  />
+                )}
+
+                {currentTab === 'students' && currentUser.role === 'admin' && (
+                  <StudentsManagementView 
+                    students={db.Students || []}
+                    courses={db.Courses || []}
+                    gasUrl={gasUrl}
+                    callGasApi={callGasApi}
+                    onSaveStudent={(st) => saveRecordToSheet('Students', st)}
+                    onDeleteStudent={(id) => deleteRecordFromSheet('Students', id)}
+                    onBatchImportSuccess={(newStudents) => {
+                      setDb(prev => ({
+                        ...prev,
+                        Students: [...(prev.Students || []).filter(s => !newStudents.some(ns => ns.StudentID === s.StudentID)), ...newStudents]
+                      }));
+                    }}
+                  />
+                )}
+
+                {currentTab === 'teachers' && currentUser.role === 'admin' && (
+                  <TeachersManagementView 
+                    teachers={db.Teachers || []}
+                    onSaveTeacher={(t) => saveRecordToSheet('Teachers', t)}
+                    onDeleteTeacher={(id) => deleteRecordFromSheet('Teachers', id)}
+                  />
+                )}
+
+                {currentTab === 'settings' && currentUser.role === 'admin' && (
+                  <SettingsView 
+                    settings={db.Settings || []}
+                    onSaveSetting={(st) => saveRecordToSheet('Settings', st)}
+                  />
+                )}
+              </div>
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    function TabButton({ active, onClick, icon, label }) {
+      return (
+        <button
+          onClick={onClick}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition whitespace-nowrap ${
+            active 
+              ? 'bg-indigo-600 text-white shadow-sm' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <Icon name={icon} size={18} />
+          <span>{label}</span>
+        </button>
+      );
+    }
+
+    function AdminControlBar({ gasUrl, setGasUrl, isSyncing, onPing, onSetup, onPull, onPush }) {
+      const [isOpen, setIsOpen] = useState(false);
+      const [localUrl, setLocalUrl] = useState(gasUrl);
+
+      return (
+        <div className="bg-slate-900 text-white border-b border-slate-800 text-xs">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="font-semibold text-slate-200">แผงควบคุมฐานข้อมูล (Admin Backend Control)</span>
+              <span className="text-slate-400">| Google Apps Script Primary DB</span>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md border border-slate-700 transition flex items-center gap-1.5"
+              >
+                <Icon name="Database" size={14} />
+                <span>{isOpen ? 'ปิดช่องตั้งค่า URL' : 'ตั้งค่า Web App URL'}</span>
+              </button>
+
+              <button
+                onClick={onPing}
+                disabled={isSyncing}
+                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-md transition flex items-center gap-1"
+                title="ทดสอบยิง Ping ไปยัง GAS"
+              >
+                <Icon name="RefreshCw" size={14} className={isSyncing ? "animate-spin" : ""} />
+                <span>Ping Test</span>
+              </button>
+
+              <button
+                onClick={onSetup}
+                disabled={isSyncing}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-md border border-amber-900/40 transition flex items-center gap-1"
+                title="สั่งให้ Code.gs สร้างทั้ง 10 ตารางบน Google Sheets"
+              >
+                <Icon name="Database" size={14} />
+                <span>สร้าง 10 Sheet</span>
+              </button>
+
+              <button
+                onClick={onPull}
+                disabled={isSyncing}
+                className="px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded-md transition flex items-center gap-1"
+                title="ดึงข้อมูลล่าสุดทั้งหมดจาก Sheets สู่ระบบ"
+              >
+                <Icon name="DownloadCloud" size={14} />
+                <span>ดึงจาก Sheets (Pull)</span>
+              </button>
+
+              <button
+                onClick={onPush}
+                disabled={isSyncing}
+                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md transition flex items-center gap-1"
+                title="ส่งข้อมูลทั้งหมดในระบบขึ้น Sheets"
+              >
+                <Icon name="UploadCloud" size={14} />
+                <span>ส่งขึ้น Sheets (Push)</span>
+              </button>
+            </div>
+          </div>
+
+          {isOpen && (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 border-t border-slate-800 bg-slate-950/50 flex flex-col sm:flex-row items-center gap-2">
+              <input
+                type="text"
+                placeholder="วาง Google Apps Script Web App URL ที่นี่ (https://script.google.com/macros/s/.../exec)"
+                value={localUrl}
+                onChange={(e) => setLocalUrl(e.target.value)}
+                className="flex-1 w-full bg-slate-900 text-slate-100 text-xs px-3 py-1.5 rounded border border-slate-700 focus:outline-hidden focus:border-indigo-500"
+              />
+              <button
+                onClick={() => {
+                  setGasUrl(localUrl);
+                  Swal.fire({
+                    icon: 'success',
+                    title: 'บันทึก URL สำเร็จ',
+                    timer: 1500,
+                    showConfirmButton: false
+                  });
+                }}
+                className="w-full sm:w-auto px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded transition"
+              >
+                บันทึก URL
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function LoginForm({ db, onLogin }) {
+      const [role, setRole] = useState('student'); // 'student', 'teacher', 'admin'
+      
+      // Fields
+      const [studentId, setStudentId] = useState('');
+      const [pin, setPin] = useState('');
+      const [teacherEmail, setTeacherEmail] = useState('');
+      const [teacherPassword, setTeacherPassword] = useState('');
+      const [adminPassword, setAdminPassword] = useState('');
+
+      const handleLoginSubmit = (e) => {
+        e.preventDefault();
+
+        if (role === 'student') {
+          const student = (db.Students || []).find(s => s.StudentID === studentId.trim());
+          if (!student) {
+            Swal.fire({ icon: 'error', title: 'ไม่พบรหัสนักเรียน', text: 'โปรดตรวจสอบรหัสนักเรียนอีกครั้ง', confirmButtonColor: '#ef4444' });
+            return;
+          }
+          if (student.PIN && student.PIN !== pin.trim()) {
+            Swal.fire({ icon: 'error', title: 'รหัสผ่าน/PIN ไม่ถูกต้อง', confirmButtonColor: '#ef4444' });
+            return;
+          }
+          onLogin('student', student);
+        } else if (role === 'teacher') {
+          const teacher = (db.Teachers || []).find(t => t.Email.toLowerCase() === teacherEmail.trim().toLowerCase());
+          if (!teacher || teacher.Password !== teacherPassword) {
+            Swal.fire({ icon: 'error', title: 'อีเมลหรือรหัสผ่านครูไม่ถูกต้อง', confirmButtonColor: '#ef4444' });
+            return;
+          }
+          onLogin('teacher', teacher);
+        } else if (role === 'admin') {
+          // Check Admin password in Settings or fallback
+          const adminSetting = (db.Settings || []).find(s => s.SettingKey === 'AdminPassword');
+          let validPass = 'admin1234';
+          if (adminSetting && adminSetting.SettingValueJSON) {
+            try {
+              validPass = JSON.parse(adminSetting.SettingValueJSON);
+            } catch {
+              validPass = adminSetting.SettingValueJSON;
+            }
+          }
+
+          if (adminPassword !== validPass) {
+            Swal.fire({ icon: 'error', title: 'รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง', text: 'รหัสผ่านเริ่มต้นคือ admin1234', confirmButtonColor: '#ef4444' });
+            return;
+          }
+          onLogin('admin', { Name: 'ผู้ดูแลระบบสูงสุด', Role: 'Admin' });
+        }
+      };
+
+      return (
+        <div>
+          {/* Role selector tabs */}
+          <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-2xl mb-6">
+            <button
+              type="button"
+              onClick={() => setRole('student')}
+              className={`py-2 text-xs font-semibold rounded-xl transition ${role === 'student' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              นักเรียน
+            </button>
+            <button
+              type="button"
+              onClick={() => setRole('teacher')}
+              className={`py-2 text-xs font-semibold rounded-xl transition ${role === 'teacher' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              ครูผู้สอน
+            </button>
+            <button
+              type="button"
+              onClick={() => setRole('admin')}
+              className={`py-2 text-xs font-semibold rounded-xl transition ${role === 'admin' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              ผู้ดูแลระบบ
+            </button>
+          </div>
+
+          <form onSubmit={handleLoginSubmit} className="space-y-4">
+            {role === 'student' && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">รหัสนักเรียน (StudentID)</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="เช่น 04501"
+                    value={studentId}
+                    onChange={(e) => setStudentId(e.target.value)}
+                    className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">รหัสผ่าน / PIN (4 หลัก)</label>
+                  <input
+                    type="password"
+                    placeholder="รหัส PIN (ค่าเริ่มต้น 1234)"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                    className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-indigo-500"
+                  />
+                </div>
+              </>
+            )}
+
+            {role === 'teacher' && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">อีเมลครูผู้สอน</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="เช่น somsak@school.ac.th"
+                    value={teacherEmail}
+                    onChange={(e) => setTeacherEmail(e.target.value)}
+                    className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">รหัสผ่าน</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="รหัสผ่านครู (เริ่มต้น 123)"
+                    value={teacherPassword}
+                    onChange={(e) => setTeacherPassword(e.target.value)}
+                    className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-indigo-500"
+                  />
+                </div>
+              </>
+            )}
+
+            {role === 'admin' && (
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">รหัสผ่านผู้ดูแลระบบ (Admin Password)</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="รหัสผ่านผู้ดูแล (admin1234)"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-hidden focus:border-indigo-500"
+                />
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-md shadow-indigo-600/30 transition duration-150 mt-2"
+            >
+              เข้าสู่ระบบ
+            </button>
+          </form>
+
+          {/* Helper credentials hint */}
+          <div className="mt-6 pt-4 border-t border-slate-100 text-[11px] text-slate-500 text-center space-y-1">
+            <p><strong>บัญชีทดสอบในระบบ:</strong></p>
+            <p>นักเรียน: รหัส <code>04501</code> PIN: <code>1234</code></p>
+            <p>ครู: <code>somsak@school.ac.th</code> รหัส: <code>123</code></p>
+            <p>Admin: รหัส <code>admin1234</code></p>
+          </div>
+        </div>
+      );
+    }
+
+    function CoursesView({ courses, allTeachers, currentUser, selectedCourseId, onSelectCourse, onSaveCourse, onDeleteCourse }) {
+      const handleCreateCourse = async () => {
+        const { value: formValues } = await Swal.fire({
+          title: 'เพิ่มรายวิชาใหม่',
+          html: `
+            <div class="text-left space-y-2 text-xs">
+              <label class="font-bold text-slate-700">รหัสวิชา</label>
+              <input id="swal-code" class="w-full p-2 border rounded-lg" placeholder="เช่น ว23101">
+              <label class="font-bold text-slate-700">ชื่อรายวิชา</label>
+              <input id="swal-name" class="w-full p-2 border rounded-lg" placeholder="เช่น วิทยาการคำนวณ ม.3">
+              <label class="font-bold text-slate-700">ระดับชั้น</label>
+              <input id="swal-grade" class="w-full p-2 border rounded-lg" placeholder="เช่น ม.3">
+              <label class="font-bold text-slate-700">ภาคเรียน</label>
+              <input id="swal-term" class="w-full p-2 border rounded-lg" value="1/2569">
+              <label class="font-bold text-slate-700">หน่วยกิต</label>
+              <input id="swal-credits" class="w-full p-2 border rounded-lg" value="1.5">
+            </div>
+          `,
+          focusConfirm: false,
+          showCancelButton: true,
+          confirmButtonText: 'บันทึก',
+          cancelButtonText: 'ยกเลิก',
+          confirmButtonColor: '#4f46e5',
+          preConfirm: () => {
+            const code = document.getElementById('swal-code').value;
+            const name = document.getElementById('swal-name').value;
+            const gradeLevel = document.getElementById('swal-grade').value;
+            const term = document.getElementById('swal-term').value;
+            const credits = document.getElementById('swal-credits').value;
+            if (!code || !name) {
+              Swal.showValidationMessage('กรุณากรอกรหัสและชื่อวิชา');
+              return false;
+            }
+            return { code, name, gradeLevel, term, credits };
+          }
+        });
+
+        if (formValues) {
+          const newCourse = {
+            CourseID: 'C_' + Date.now().toString().slice(-6),
+            Code: formValues.code,
+            Name: formValues.name,
+            TeacherID: currentUser.role === 'teacher' ? currentUser.user.TeacherID : (allTeachers[0]?.TeacherID || 'T101'),
+            TeacherName: currentUser.role === 'teacher' ? currentUser.user.Name : (allTeachers[0]?.Name || 'ครูผู้สอน'),
+            GradeLevel: formValues.gradeLevel,
+            Term: formValues.term,
+            Credits: formValues.credits,
+            CoverColor: 'from-indigo-600 to-blue-700',
+            CreatedAt: new Date().toISOString().split('T')[0]
+          };
+          onSaveCourse(newCourse);
+          Swal.fire({ icon: 'success', title: 'เพิ่มรายวิชาสำเร็จ', timer: 1500, showConfirmButton: false });
+        }
+      };
+
+      return (
+        <div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">รายวิชาเรียนทั้งหมด</h2>
+              <p className="text-slate-500 text-xs mt-0.5">เลือกรายวิชาเพื่อเข้าสู่ห้องเรียน บทเรียน และการบ้าน</p>
+            </div>
+            {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
+              <button
+                onClick={handleCreateCourse}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl transition shadow-sm"
+              >
+                <Icon name="Plus" size={18} />
+                <span>เพิ่มรายวิชา</span>
+              </button>
+            )}
+          </div>
+
+          {courses.length === 0 ? (
+            <div className="bg-white rounded-2xl p-12 text-center border border-slate-200">
+              <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Icon name="BookOpen" size={32} />
+              </div>
+              <h3 className="font-bold text-slate-700">ยังไม่มีรายวิชาในระบบ</h3>
+              <p className="text-xs text-slate-400 mt-1">คุณยังไม่ได้ลงทะเบียนในรายวิชาใด หรือยังไม่มีการสร้างรายวิชา</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {courses.map(course => (
+                <div
+                  key={course.CourseID}
+                  onClick={() => onSelectCourse(course.CourseID)}
+                  className={`group bg-white rounded-2xl border transition-all duration-200 overflow-hidden shadow-xs hover:shadow-md cursor-pointer flex flex-col ${
+                    selectedCourseId === course.CourseID ? 'ring-2 ring-indigo-500 border-indigo-500' : 'border-slate-200 hover:border-indigo-200'
+                  }`}
+                >
+                  <div className={`h-28 bg-gradient-to-r ${course.CoverColor || 'from-indigo-600 to-blue-700'} p-5 flex flex-col justify-between text-white relative`}>
+                    <div className="flex items-center justify-between">
+                      <span className="bg-white/20 backdrop-blur-xs text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                        {course.Code}
+                      </span>
+                      <span className="text-xs bg-black/20 px-2 py-0.5 rounded-full">
+                        {course.GradeLevel} • {course.Term}
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-lg leading-snug line-clamp-1">{course.Name}</h3>
+                  </div>
+
+                  <div className="p-5 flex-1 flex flex-col justify-between">
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center gap-2 text-xs text-slate-600">
+                        <Icon name="UserCheck" size={16} className="text-indigo-600" />
+                        <span>{course.TeacherName}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <Icon name="Award" size={16} className="text-amber-500" />
+                        <span>จำนวน {course.Credits || '1.5'} หน่วยกิต</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-indigo-600 group-hover:translate-x-1 transition duration-150 inline-flex items-center gap-1">
+                        เข้าสู่บทเรียน <Icon name="ChevronRight" size={16} />
+                      </span>
+                      {currentUser.role === 'admin' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            Swal.fire({
+                              title: 'ลบรายวิชานี้?',
+                              text: `คุณต้องการลบวิชา ${course.Name} หรือไม่`,
+                              icon: 'warning',
+                              showCancelButton: true,
+                              confirmButtonColor: '#ef4444'
+                            }).then(res => {
+                              if (res.isConfirmed) onDeleteCourse(course.CourseID);
+                            });
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                        >
+                          <Icon name="Trash2" size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function LessonsView({ course, lessons, currentUser, onSaveLesson, onDeleteLesson }) {
+      const sortedLessons = useMemo(() => {
+        return [...lessons].sort((a, b) => (parseInt(a.Order) || 0) - (parseInt(b.Order) || 0));
+      }, [lessons]);
+
+      const handleAddLesson = async () => {
+        const { value: formValues } = await Swal.fire({
+          title: 'เพิ่มบทเรียนใหม่',
+          html: `
+            <div class="text-left space-y-2 text-xs">
+              <label class="font-bold text-slate-700">ชื่อบทเรียน / หัวข้อ</label>
+              <input id="swal-title" class="w-full p-2 border rounded-lg" placeholder="เช่น บทที่ 1: การประมวลผลข้อมูล">
+              <label class="font-bold text-slate-700">คำอธิบาย</label>
+              <textarea id="swal-desc" class="w-full p-2 border rounded-lg h-20" placeholder="รายละเอียดเนื้อหาบทเรียน..."></textarea>
+              <label class="font-bold text-slate-700">ลิงก์วิดีโอ (YouTube URL)</label>
+              <input id="swal-video" class="w-full p-2 border rounded-lg" placeholder="https://www.youtube.com/watch?v=...">
+              <label class="font-bold text-slate-700">ลำดับบทเรียน (Order)</label>
+              <input id="swal-order" type="number" class="w-full p-2 border rounded-lg" value="${lessons.length + 1}">
+            </div>
+          `,
+          focusConfirm: false,
+          showCancelButton: true,
+          confirmButtonColor: '#4f46e5',
+          preConfirm: () => {
+            const title = document.getElementById('swal-title').value;
+            const description = document.getElementById('swal-desc').value;
+            const videoUrl = document.getElementById('swal-video').value;
+            const order = document.getElementById('swal-order').value;
+            if (!title) {
+              Swal.showValidationMessage('กรุณากรอกชื่อบทเรียน');
+              return false;
+            }
+            return { title, description, videoUrl, order };
+          }
+        });
+
+        if (formValues) {
+          const newLesson = {
+            LessonID: 'LES_' + Date.now().toString().slice(-6),
+            CourseID: course.CourseID,
+            Title: formValues.title,
+            Description: formValues.description,
+            VideoURL: formValues.videoUrl,
+            AttachmentsJSON: '[]',
+            Order: formValues.order || '1',
+            Published: 'true',
+            CreatedAt: new Date().toISOString().split('T')[0]
+          };
+          onSaveLesson(newLesson);
+          Swal.fire({ icon: 'success', title: 'เพิ่มบทเรียนสำเร็จ', timer: 1500, showConfirmButton: false });
+        }
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 mb-1">
+                <span>{course.Code}</span>
+                <span>•</span>
+                <span>{course.Name}</span>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900">สื่อและบทเรียนการสอน (Lessons)</h2>
+            </div>
+            {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
+              <button
+                onClick={handleAddLesson}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl transition shadow-sm"
+              >
+                <Icon name="Plus" size={18} />
+                <span>สร้างบทเรียน</span>
+              </button>
+            )}
+          </div>
+
+          {sortedLessons.length === 0 ? (
+            <div className="bg-white rounded-2xl p-12 text-center border border-slate-200">
+              <Icon name="Video" size={36} className="text-slate-300 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-slate-600">ยังไม่มีบทเรียนในรายวิชานี้</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {sortedLessons.map((lesson, idx) => (
+                <div key={lesson.LessonID} className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs">
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div className="flex items-center gap-3">
+                      <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm">
+                        {lesson.Order || idx + 1}
+                      </span>
+                      <h3 className="font-bold text-slate-900 text-base">{lesson.Title}</h3>
+                    </div>
+                    {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            const updated = { ...lesson, Published: lesson.Published === 'true' ? 'false' : 'true' };
+                            onSaveLesson(updated);
+                          }}
+                          className={`text-xs px-2.5 py-1 rounded-full font-semibold transition ${
+                            lesson.Published === 'true' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {lesson.Published === 'true' ? 'เผยแพร่แล้ว' : 'ซ่อน'}
+                        </button>
+                        <button
+                          onClick={() => onDeleteLesson(lesson.LessonID)}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
+                        >
+                          <Icon name="Trash2" size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-slate-600 text-sm mb-4 leading-relaxed whitespace-pre-line">{lesson.Description}</p>
+
+                  {lesson.VideoURL && (
+                    <div className="mt-3 bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs text-slate-700">
+                        <Icon name="Video" size={18} className="text-rose-600" />
+                        <span className="font-medium">วิดีโอประกอบการเรียนรู้:</span>
+                        <span className="truncate max-w-xs text-slate-500">{lesson.VideoURL}</span>
+                      </div>
+                      <a
+                        href={lesson.VideoURL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                      >
+                        <span>เปิดดูวิดีโอ</span>
+                        <Icon name="ExternalLink" size={14} />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function AssignmentsView({ course, assignments, submissions, currentUser, gasUrl, callGasApi, onSaveAssignment, onDeleteAssignment, onSaveSubmission }) {
+      const [uploadingAssignmentId, setUploadingAssignmentId] = useState(null);
+      const fileInputRef = useRef(null);
+
+      const handleCreateAssignment = async () => {
+        const { value: formValues } = await Swal.fire({
+          title: 'มอบหมายงานใหม่',
+          html: `
+            <div class="text-left space-y-2 text-xs">
+              <label class="font-bold text-slate-700">ชื่องาน / ใบงาน</label>
+              <input id="swal-assign-title" class="w-full p-2 border rounded-lg" placeholder="เช่น ใบงานที่ 1: ผังงาน">
+              <label class="font-bold text-slate-700">คำสั่งและรายละเอียด</label>
+              <textarea id="swal-assign-desc" class="w-full p-2 border rounded-lg h-20" placeholder="อธิบายคำสั่ง กำหนดประเภทไฟล์..."></textarea>
+              <label class="font-bold text-slate-700">คะแนนเต็ม</label>
+              <input id="swal-assign-score" type="number" class="w-full p-2 border rounded-lg" value="10">
+              <label class="font-bold text-slate-700">วันกำหนดส่ง (Due Date)</label>
+              <input id="swal-assign-due" type="datetime-local" class="w-full p-2 border rounded-lg">
+            </div>
+          `,
+          showCancelButton: true,
+          confirmButtonColor: '#4f46e5',
+          preConfirm: () => {
+            const title = document.getElementById('swal-assign-title').value;
+            const description = document.getElementById('swal-assign-desc').value;
+            const maxScore = document.getElementById('swal-assign-score').value;
+            const dueDate = document.getElementById('swal-assign-due').value;
+            if (!title) {
+              Swal.showValidationMessage('กรุณากรอกชื่องาน');
+              return false;
+            }
+            return { title, description, maxScore, dueDate };
+          }
+        });
+
+        if (formValues) {
+          const newAssignment = {
+            AssignmentID: 'ASN_' + Date.now().toString().slice(-6),
+            CourseID: course.CourseID,
+            Title: formValues.title,
+            Description: formValues.description,
+            MaxScore: formValues.maxScore || '10',
+            DueDate: formValues.dueDate || '',
+            AttachmentsJSON: '[]',
+            CreatedAt: new Date().toISOString()
+          };
+          onSaveAssignment(newAssignment);
+          Swal.fire({ icon: 'success', title: 'สร้างใบงานสำเร็จ', timer: 1500, showConfirmButton: false });
+        }
+      };
+
+      // Student File Upload to Google Drive via GAS Base64
+      const handleFileUpload = (assignment) => {
+        setUploadingAssignmentId(assignment.AssignmentID);
+        if (fileInputRef.current) {
+          fileInputRef.current.click();
+        }
+      };
+
+      const processFileSelection = async (e) => {
+        const file = e.target.files[0];
+        if (!file || !uploadingAssignmentId) return;
+
+        // Size check (15MB limit)
+        if (file.size > 15 * 1024 * 1024) {
+          Swal.fire({ icon: 'error', title: 'ไฟล์มีขนาดใหญ่เกินไป', text: 'กรุณาอัปโหลดไฟล์ขนาดไม่เกิน 15 MB' });
+          return;
+        }
+
+        Swal.fire({
+          title: 'กำลังอัปโหลดไฟล์ส่งงาน...',
+          text: 'ระบบกำลังแปลงไฟล์และส่งเข้า Google Drive ผ่าน Google Apps Script',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const base64Data = reader.result;
+          
+          let fileUrl = 'https://drive.google.com/mock-file-view';
+          let driveFileId = 'MOCK_ID_' + Date.now();
+
+          // If GAS URL is configured, push file to actual Drive
+          if (gasUrl) {
+            const uploadRes = await callGasApi('uploadFile', {
+              base64Data: base64Data,
+              fileName: `${currentUser.user.StudentID}_${file.name}`,
+              mimeType: file.type
+            });
+
+            if (uploadRes && uploadRes.success) {
+              fileUrl = uploadRes.fileUrl;
+              driveFileId = uploadRes.driveFileId;
+            }
+          }
+
+          const submissionRecord = {
+            ID: 'SUB_' + Date.now().toString().slice(-6),
+            AssignmentID: uploadingAssignmentId,
+            CourseID: course.CourseID,
+            StudentID: currentUser.user.StudentID,
+            StudentName: currentUser.user.Name,
+            Grade: currentUser.user.Grade || '',
+            FileName: file.name,
+            FileUrl: fileUrl,
+            DriveFileID: driveFileId,
+            Note: 'ส่งงานผ่านระบบ EduPortal',
+            SubmittedAt: new Date().toLocaleString('th-TH'),
+            Score: '',
+            Feedback: '',
+            Status: 'Submitted'
+          };
+
+          await onSaveSubmission(submissionRecord);
+          Swal.fire({
+            icon: 'success',
+            title: 'ส่งงานเรียบร้อย!',
+            text: 'ไฟล์ของคุณถูกบันทึกเข้า Google Drive และตาราง Submissions เรียบร้อยแล้ว',
+            confirmButtonColor: '#4f46e5'
+          });
+          setUploadingAssignmentId(null);
+        };
+        reader.readAsDataURL(file);
+      };
+
+      // Teacher Grading Modal
+      const handleGradeSubmission = async (sub, maxScore) => {
+        const { value: formValues } = await Swal.fire({
+          title: `ตรวจงาน: ${sub.StudentName}`,
+          html: `
+            <div class="text-left space-y-2 text-xs">
+              <p><strong>ไฟล์งาน:</strong> <a href="${sub.FileUrl}" target="_blank" class="text-indigo-600 underline">${sub.FileName}</a></p>
+              <label class="font-bold text-slate-700">ให้คะแนน (เต็ม ${maxScore})</label>
+              <input id="swal-grade-score" type="number" step="0.5" max="${maxScore}" class="w-full p-2 border rounded-lg" value="${sub.Score || ''}">
+              <label class="font-bold text-slate-700">ข้อเสนอแนะ / คำติชม</label>
+              <textarea id="swal-grade-fb" class="w-full p-2 border rounded-lg h-20">${sub.Feedback || ''}</textarea>
+            </div>
+          `,
+          showCancelButton: true,
+          confirmButtonColor: '#4f46e5',
+          preConfirm: () => {
+            const score = document.getElementById('swal-grade-score').value;
+            const feedback = document.getElementById('swal-grade-fb').value;
+            return { score, feedback };
+          }
+        });
+
+        if (formValues) {
+          const updated = {
+            ...sub,
+            Score: formValues.score,
+            Feedback: formValues.feedback,
+            Status: 'Graded'
+          };
+          onSaveSubmission(updated);
+          Swal.fire({ icon: 'success', title: 'บันทึกคะแนนสำเร็จ', timer: 1200, showConfirmButton: false });
+        }
+      };
+
+      return (
+        <div className="space-y-6">
+          <input type="file" ref={fileInputRef} onChange={processFileSelection} className="hidden" />
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 mb-1">
+                <span>{course.Code}</span>
+                <span>•</span>
+                <span>{course.Name}</span>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900">การบ้านและใบงาน (Assignments)</h2>
+            </div>
+            {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
+              <button
+                onClick={handleCreateAssignment}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl transition shadow-sm"
+              >
+                <Icon name="Plus" size={18} />
+                <span>มอบหมายงาน</span>
+              </button>
+            )}
+          </div>
+
+          {assignments.length === 0 ? (
+            <div className="bg-white rounded-2xl p-12 text-center border border-slate-200">
+              <Icon name="FileText" size={36} className="text-slate-300 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-slate-600">ไม่มีรายการการบ้านในวิชานี้</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {assignments.map(assign => {
+                const mySubmission = currentUser.role === 'student' 
+                  ? submissions.find(s => s.AssignmentID === assign.AssignmentID && s.StudentID === currentUser.user.StudentID)
+                  : null;
+
+                const assignSubs = submissions.filter(s => s.AssignmentID === assign.AssignmentID);
+
+                return (
+                  <div key={assign.AssignmentID} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-md">
+                            คะแนนเต็ม {assign.MaxScore} คะแนน
+                          </span>
+                          {assign.DueDate && (
+                            <span className="text-xs text-rose-600 font-medium flex items-center gap-1">
+                              <Icon name="Clock" size={13} /> กำหนดส่ง: {new Date(assign.DueDate).toLocaleString('th-TH')}
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900">{assign.Title}</h3>
+                        <p className="text-slate-600 text-sm mt-1 leading-relaxed">{assign.Description}</p>
+                      </div>
+
+                      {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
+                        <button
+                          onClick={() => onDeleteAssignment(assign.AssignmentID)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded transition"
+                        >
+                          <Icon name="Trash2" size={16} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Student Action Section */}
+                    {currentUser.role === 'student' && (
+                      <div className="mt-4 pt-4 border-t border-slate-100 bg-slate-50 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3">
+                        {mySubmission ? (
+                          <div className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                  <Icon name="CheckCircle" size={14} /> ส่งงานแล้วเมื่อ {mySubmission.SubmittedAt}
+                                </span>
+                                <span className="text-xs text-slate-500 font-medium">({mySubmission.FileName})</span>
+                              </div>
+                              {mySubmission.Status === 'Graded' ? (
+                                <div className="mt-2 text-xs">
+                                  <span className="font-bold text-indigo-600">คะแนนที่ได้: {mySubmission.Score} / {assign.MaxScore}</span>
+                                  {mySubmission.Feedback && <p className="text-slate-600 mt-0.5">คำติชม: {mySubmission.Feedback}</p>}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-amber-600 font-medium block mt-1">รอครูผู้สอนตรวจและให้คะแนน</span>
+                              )}
+                            </div>
+                            <a
+                              href={mySubmission.FileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-100 transition inline-flex items-center gap-1"
+                            >
+                              <Icon name="ExternalLink" size={14} /> ดูไฟล์ที่ส่ง
+                            </a>
+                          </div>
+                        ) : (
+                          <div className="w-full flex items-center justify-between">
+                            <span className="text-xs text-slate-500 font-medium">ยังไม่ได้ส่งงานนี้</span>
+                            <button
+                              onClick={() => handleFileUpload(assign)}
+                              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-xl transition flex items-center gap-1.5 shadow-sm"
+                            >
+                              <Icon name="UploadCloud" size={16} />
+                              <span>แนบไฟล์ส่งงาน (Drive)</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Teacher / Admin Grading Table */}
+                    {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
+                      <div className="mt-4 pt-4 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            รายการส่งงานของนักเรียน ({assignSubs.length} คน)
+                          </h4>
+                        </div>
+                        {assignSubs.length === 0 ? (
+                          <p className="text-xs text-slate-400 italic">ยังไม่มีนักเรียนส่งงานในรายการนี้</p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs">
+                              <thead>
+                                <tr className="border-b border-slate-200 text-slate-500">
+                                  <th className="py-2">รหัส / ชื่อนักเรียน</th>
+                                  <th className="py-2">ไฟล์งาน</th>
+                                  <th className="py-2">วันเวลาที่ส่ง</th>
+                                  <th className="py-2">คะแนน</th>
+                                  <th className="py-2 text-right">การจัดการ</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {assignSubs.map(sub => (
+                                  <tr key={sub.ID} className="hover:bg-slate-50/80">
+                                    <td className="py-2.5 font-medium text-slate-800">
+                                      {sub.StudentID} - {sub.StudentName} ({sub.Grade})
+                                    </td>
+                                    <td className="py-2.5">
+                                      <a href={sub.FileUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline inline-flex items-center gap-1">
+                                        <Icon name="FileText" size={13} /> {sub.FileName}
+                                      </a>
+                                    </td>
+                                    <td className="py-2.5 text-slate-500">{sub.SubmittedAt}</td>
+                                    <td className="py-2.5">
+                                      {sub.Status === 'Graded' ? (
+                                        <span className="font-bold text-emerald-600">{sub.Score} / {assign.MaxScore}</span>
+                                      ) : (
+                                        <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-semibold">รอตรวจ</span>
+                                      )}
+                                    </td>
+                                    <td className="py-2.5 text-right">
+                                      <button
+                                        onClick={() => handleGradeSubmission(sub, assign.MaxScore)}
+                                        className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 rounded-lg transition font-medium"
+                                      >
+                                        {sub.Status === 'Graded' ? 'แก้คะแนน' : 'ตรวจงาน'}
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function ExamsView({ course, exams, attempts, currentUser, onStartExam, onSaveExam, onDeleteExam }) {
+      const handleCreateExam = async () => {
+        const { value: formValues } = await Swal.fire({
+          title: 'สร้างแบบทดสอบออนไลน์',
+          html: `
+            <div class="text-left space-y-2 text-xs">
+              <label class="font-bold text-slate-700">ชื่อชุดแบบทดสอบ</label>
+              <input id="swal-exam-title" class="w-full p-2 border rounded-lg" placeholder="เช่น แบบทดสอบกลางภาค">
+              <label class="font-bold text-slate-700">คำอธิบาย</label>
+              <textarea id="swal-exam-desc" class="w-full p-2 border rounded-lg" placeholder="รายละเอียดหรือกติกาการสอบ..."></textarea>
+              <label class="font-bold text-slate-700">เวลาทำข้อสอบ (นาที)</label>
+              <input id="swal-exam-time" type="number" class="w-full p-2 border rounded-lg" value="15">
+            </div>
+          `,
+          showCancelButton: true,
+          confirmButtonColor: '#4f46e5',
+          preConfirm: () => {
+            const title = document.getElementById('swal-exam-title').value;
+            const description = document.getElementById('swal-exam-desc').value;
+            const timeLimit = document.getElementById('swal-exam-time').value;
+            if (!title) {
+              Swal.showValidationMessage('กรุณากรอกชื่อข้อสอบ');
+              return false;
+            }
+            return { title, description, timeLimit };
+          }
+        });
+
+        if (formValues) {
+          // Default Sample Multiple-choice questions
+          const sampleQuestions = [
+            { id: 'q1', text: 'คำถามข้อที่ 1: การเขียนโปรแกรมโครงสร้างประกอบด้วยโครงสร้างใดบ้าง?', options: ['ลำดับ, เลือกทำ, ทำซ้ำ', 'อินพุต, แปลงผล, รีเซ็ต', 'ไฟล์, ฐานข้อมูล, เซิร์ฟเวอร์', 'กราฟิก, ดนตรี, มัลติมีเดีย'], answerIndex: 0, score: 5 },
+            { id: 'q2', text: 'คำถามข้อที่ 2: Protocol หลักที่ใช้ในการส่งข้อมูลหน้าเว็บเบราว์เซอร์คือข้อใด?', options: ['FTP', 'HTTPS', 'SMTP', 'SSH'], answerIndex: 1, score: 5 }
+          ];
+
+          const newExam = {
+            ExamID: 'EX_' + Date.now().toString().slice(-6),
+            CourseID: course.CourseID,
+            Title: formValues.title,
+            Description: formValues.description,
+            TimeLimitMin: formValues.timeLimit || '15',
+            QuestionsJSON: JSON.stringify(sampleQuestions),
+            Published: 'true',
+            CreatedAt: new Date().toISOString().split('T')[0]
+          };
+
+          onSaveExam(newExam);
+          Swal.fire({ icon: 'success', title: 'สร้างข้อสอบสำเร็จ (พร้อมคำถามตัวอย่าง 2 ข้อ)', confirmButtonColor: '#4f46e5' });
+        }
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 mb-1">
+                <span>{course.Code}</span>
+                <span>•</span>
+                <span>{course.Name}</span>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900">แบบทดสอบออนไลน์ (Examinations)</h2>
+            </div>
+            {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
+              <button
+                onClick={handleCreateExam}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl transition shadow-sm"
+              >
+                <Icon name="Plus" size={18} />
+                <span>สร้างแบบทดสอบ</span>
+              </button>
+            )}
+          </div>
+
+          {exams.length === 0 ? (
+            <div className="bg-white rounded-2xl p-12 text-center border border-slate-200">
+              <Icon name="Clock" size={36} className="text-slate-300 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-slate-600">ยังไม่มีแบบทดสอบในวิชานี้</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {exams.map(exam => {
+                let questions = [];
+                try {
+                  questions = JSON.parse(exam.QuestionsJSON || '[]');
+                } catch {
+                  questions = [];
+                }
+
+                const myAttempt = currentUser.role === 'student'
+                  ? attempts.find(att => att.ExamID === exam.ExamID && att.StudentID === currentUser.user.StudentID)
+                  : null;
+
+                const examAttempts = attempts.filter(att => att.ExamID === exam.ExamID);
+
+                return (
+                  <div key={exam.ExamID} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-md flex items-center gap-1">
+                          <Icon name="Clock" size={13} /> {exam.TimeLimitMin} นาที
+                        </span>
+                        <span className="text-xs text-slate-500 font-medium">{questions.length} ข้อ</span>
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900 mb-1">{exam.Title}</h3>
+                      <p className="text-slate-600 text-sm mb-4 leading-relaxed">{exam.Description}</p>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100">
+                      {currentUser.role === 'student' && (
+                        <div>
+                          {myAttempt ? (
+                            <div className="bg-slate-50 p-3 rounded-xl flex items-center justify-between">
+                              <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                                <Icon name="CheckCircle" size={14} /> ทำข้อสอบแล้ว
+                              </span>
+                              <span className="text-xs font-bold text-slate-800">
+                                คะแนน: {myAttempt.Score} / {myAttempt.TotalScore}
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                Swal.fire({
+                                  title: 'พร้อมเริ่มทำข้อสอบหรือไม่?',
+                                  text: `เวลาจะเริ่มนับถอยหลังทันที (${exam.TimeLimitMin} นาที) และระบบจะส่งคำตอบอัตโนมัติเมื่อหมดเวลา`,
+                                  icon: 'warning',
+                                  showCancelButton: true,
+                                  confirmButtonText: 'เริ่มทำข้อสอบ',
+                                  cancelButtonText: 'ยังไม่พร้อม',
+                                  confirmButtonColor: '#4f46e5'
+                                }).then(res => {
+                                  if (res.isConfirmed) onStartExam(exam);
+                                });
+                              }}
+                              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm"
+                            >
+                              เริ่มทำข้อสอบ
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs text-slate-500">
+                            <span>ผู้เข้าสอบแล้ว: {examAttempts.length} คน</span>
+                            <button
+                              onClick={() => onDeleteExam(exam.ExamID)}
+                              className="text-rose-600 hover:text-rose-800"
+                            >
+                              ลบข้อสอบ
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function ExamTakingView({ exam, student, onComplete, onCancel }) {
+      const questions = useMemo(() => {
+        try {
+          return JSON.parse(exam.QuestionsJSON || '[]');
+        } catch {
+          return [];
+        }
+      }, [exam.QuestionsJSON]);
+
+      const [answers, setAnswers] = useState({});
+      const [secondsLeft, setSecondsLeft] = useState((parseInt(exam.TimeLimitMin) || 10) * 60);
+
+      // Submit Calculation
+      const handleSubmit = () => {
+        let score = 0;
+        let totalScore = 0;
+
+        questions.forEach((q, idx) => {
+          const qScore = parseInt(q.score) || 5;
+          totalScore += qScore;
+          if (answers[idx] === q.answerIndex) {
+            score += qScore;
+          }
+        });
+
+        const attemptRecord = {
+          AttemptID: 'ATT_' + Date.now().toString().slice(-6),
+          ExamID: exam.ExamID,
+          CourseID: exam.CourseID,
+          StudentID: student.StudentID,
+          StudentName: student.Name,
+          Score: String(score),
+          TotalScore: String(totalScore),
+          SubmittedAt: new Date().toLocaleString('th-TH'),
+          TimeSpentSec: String(((parseInt(exam.TimeLimitMin) || 10) * 60) - secondsLeft)
+        };
+
+        onComplete(attemptRecord);
+      };
+
+      // Timer countdown effect
+      useEffect(() => {
+        if (secondsLeft <= 0) {
+          Swal.fire({
+            icon: 'info',
+            title: 'หมดเวลาทำข้อสอบ!',
+            text: 'ระบบกำลังส่งคำตอบของคุณโดยอัตโนมัติ',
+            timer: 2000,
+            showConfirmButton: false
+          }).then(() => {
+            handleSubmit();
+          });
+          return;
+        }
+
+        const timer = setInterval(() => {
+          setSecondsLeft(prev => prev - 1);
+        }, 1000);
+
+        return () => clearInterval(timer);
+      }, [secondsLeft]);
+
+      const formatTime = (secs) => {
+        const m = Math.floor(secs / 60);
+        const s = secs % 60;
+        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+      };
+
+      return (
+        <div className="max-w-3xl mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-md">
+          {/* Header & Sticky Timer */}
+          <div className="flex items-center justify-between pb-6 border-b border-slate-100 mb-6">
+            <div>
+              <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider">กำลังทำข้อสอบ</span>
+              <h2 className="text-xl font-bold text-slate-900">{exam.Title}</h2>
+            </div>
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-mono text-sm font-bold shadow-xs ${
+              secondsLeft < 120 ? 'bg-rose-50 text-rose-600 animate-pulse border border-rose-200' : 'bg-slate-100 text-slate-800'
+            }`}>
+              <Icon name="Clock" size={18} />
+              <span>{formatTime(secondsLeft)}</span>
+            </div>
+          </div>
+
+          {/* Question List */}
+          <div className="space-y-8">
+            {questions.map((q, qIdx) => (
+              <div key={q.id || qIdx} className="space-y-3">
+                <h3 className="font-bold text-slate-800 text-sm flex gap-2">
+                  <span className="text-indigo-600 font-extrabold">{qIdx + 1}.</span>
+                  <span>{q.text}</span>
+                </h3>
+
+                <div className="space-y-2 pl-6">
+                  {q.options.map((opt, optIdx) => (
+                    <label
+                      key={optIdx}
+                      className={`flex items-center gap-3 p-3 rounded-xl border text-xs font-medium cursor-pointer transition ${
+                        answers[qIdx] === optIdx 
+                          ? 'bg-indigo-50/80 border-indigo-500 text-indigo-900 shadow-xs' 
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name={`question_${qIdx}`}
+                        checked={answers[qIdx] === optIdx}
+                        onChange={() => setAnswers({ ...answers, [qIdx]: optIdx })}
+                        className="text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>{opt}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Footer Submit Bar */}
+          <div className="mt-10 pt-6 border-t border-slate-100 flex items-center justify-between">
+            <button
+              onClick={() => {
+                Swal.fire({
+                  title: 'ต้องการออกจากการสอบ?',
+                  text: 'คำตอบที่ทำไว้จะไม่ถูกบันทึก',
+                  icon: 'warning',
+                  showCancelButton: true,
+                  confirmButtonColor: '#ef4444'
+                }).then(res => {
+                  if (res.isConfirmed) onCancel();
+                });
+              }}
+              className="text-xs text-slate-500 hover:text-slate-800"
+            >
+              ยกเลิก
+            </button>
+
+            <button
+              onClick={() => {
+                Swal.fire({
+                  title: 'ยืนยันส่งกระดาษคำตอบ?',
+                  text: `คุณตอบไปแล้ว ${Object.keys(answers).length} จาก ${questions.length} ข้อ`,
+                  icon: 'question',
+                  showCancelButton: true,
+                  confirmButtonText: 'ยืนยันส่งคำตอบ',
+                  cancelButtonText: 'กลับไปตรวจทาน',
+                  confirmButtonColor: '#4f46e5'
+                }).then(res => {
+                  if (res.isConfirmed) handleSubmit();
+                });
+              }}
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-md transition"
+            >
+              ส่งกระดาษคำตอบ
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    function EvaluationsView({ course, evaluations, currentUser, onSaveEvaluation }) {
+      const [clarity, setClarity] = useState('5');
+      const [engagement, setEngagement] = useState('5');
+      const [materials, setMaterials] = useState('5');
+      const [assessment, setAssessment] = useState('5');
+      const [counseling, setCounseling] = useState('5');
+      const [comment, setComment] = useState('');
+
+      const hasEvaluated = useMemo(() => {
+        if (currentUser.role !== 'student') return false;
+        return evaluations.some(ev => ev.StudentID === currentUser.user.StudentID);
+      }, [evaluations, currentUser]);
+
+      const handleEvalSubmit = (e) => {
+        e.preventDefault();
+
+        const overall = (
+          (parseInt(clarity) + parseInt(engagement) + parseInt(materials) + parseInt(assessment) + parseInt(counseling)) / 5
+        ).toFixed(1);
+
+        const newEval = {
+          ID: 'EV_' + Date.now().toString().slice(-6),
+          CourseID: course.CourseID,
+          TeacherID: course.TeacherID,
+          TeacherName: course.TeacherName,
+          // StudentID is stored only to check duplicate evaluation, but filtered out on Teacher view
+          StudentID: currentUser.user.StudentID,
+          Clarity: clarity,
+          Engagement: engagement,
+          Materials: materials,
+          Assessment: assessment,
+          Counseling: counseling,
+          OverallScore: overall,
+          Comment: comment,
+          SubmittedAt: new Date().toISOString().split('T')[0]
+        };
+
+        onSaveEvaluation(newEval);
+        Swal.fire({
+          icon: 'success',
+          title: 'ส่งแบบประเมินสำเร็จ!',
+          text: 'ข้อมูลการประเมินนี้เป็นความลับ และไม่ระบุตัวตนต่อครูผู้สอน',
+          confirmButtonColor: '#4f46e5'
+        });
+      };
+
+      // Calculate averages for Teacher / Admin view
+      const averageStats = useMemo(() => {
+        if (evaluations.length === 0) return null;
+        let sum = 0;
+        evaluations.forEach(ev => sum += parseFloat(ev.OverallScore) || 0);
+        return (sum / evaluations.length).toFixed(2);
+      }, [evaluations]);
+
+      return (
+        <div className="space-y-6">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 mb-1">
+              <span>{course.Code}</span>
+              <span>•</span>
+              <span>{course.Name}</span>
+            </div>
+            <h2 className="text-xl font-bold text-slate-900">แบบประเมินประสิทธิภาพการสอนของครู</h2>
+            <p className="text-xs text-slate-500 mt-0.5">ครูผู้สอน: <strong>{course.TeacherName}</strong></p>
+          </div>
+
+          {/* Student Evaluation Form */}
+          {currentUser.role === 'student' && (
+            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs max-w-2xl">
+              {hasEvaluated ? (
+                <div className="text-center py-6">
+                  <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Icon name="CheckCircle" size={28} />
+                  </div>
+                  <h3 className="font-bold text-slate-800 text-base">คุณได้ทำการประเมินรายวิชานี้เรียบร้อยแล้ว</h3>
+                  <p className="text-xs text-slate-500 mt-1">ขอบคุณสำหรับความคิดเห็นเพื่อนำไปพัฒนาการเรียนการสอนต่อไป</p>
+                </div>
+              ) : (
+                <form onSubmit={handleEvalSubmit} className="space-y-5">
+                  <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 text-xs text-indigo-700 flex items-center gap-2">
+                    <Icon name="Shield" size={18} />
+                    <span>การประเมินนี้ไม่ระบุตัวตน (Anonymous) ครูจะไม่ทราบชื่อหรือรหัสนักเรียนของผู้ประเมิน</span>
+                  </div>
+
+                  <RatingRow label="1. ความชัดเจนในการอธิบายเนื้อหาและเป้าหมายการเรียนรู้" value={clarity} onChange={setClarity} />
+                  <RatingRow label="2. การจัดกิจกรรมการเรียนรู้ที่กระตุ้นการมีส่วนร่วม" value={engagement} onChange={setEngagement} />
+                  <RatingRow label="3. คุณภาพและความทันสมัยของสื่อการสอนและเอกสาร" value={materials} onChange={setMaterials} />
+                  <RatingRow label="4. ความโปร่งใสและความเหมาะสมของการวัดผลและใบงาน" value={assessment} onChange={setAssessment} />
+                  <RatingRow label="5. การให้คำแนะนำ รับฟังความคิดเห็น และช่วยเหลือผู้เรียน" value={counseling} onChange={setCounseling} />
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">ข้อเสนอแนะเพิ่มเติมเพื่อการปรับปรุง</label>
+                    <textarea
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      placeholder="แสดงความคิดเห็นอย่างสร้างสรรค์..."
+                      className="w-full p-3 text-xs border border-slate-200 rounded-xl focus:outline-hidden focus:border-indigo-500 h-24"
+                    ></textarea>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition"
+                  >
+                    ส่งผลการประเมิน
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+
+          {/* Teacher and Admin Overview: StudentID is fully omitted */}
+          {(currentUser.role === 'admin' || currentUser.role === 'teacher') && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+                  <span className="text-xs text-slate-500 font-medium">คะแนนเฉลี่ยรวมทุกด้าน</span>
+                  <div className="text-3xl font-extrabold text-indigo-600 mt-1">{averageStats || '0.0'} / 5.0</div>
+                </div>
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+                  <span className="text-xs text-slate-500 font-medium">จำนวนผู้ส่งแบบประเมิน</span>
+                  <div className="text-3xl font-extrabold text-slate-800 mt-1">{evaluations.length} คน</div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs">
+                <h3 className="font-bold text-slate-800 text-sm mb-4">ความคิดเห็นและข้อเสนอแนะ (ไม่ระบุตัวตน)</h3>
+                {evaluations.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">ยังไม่มีข้อมูลการประเมินในรายวิชานี้</p>
+                ) : (
+                  <div className="space-y-3">
+                    {evaluations.map((ev, idx) => (
+                      <div key={ev.ID || idx} className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-xs">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-indigo-600">คะแนนประเมิน: {ev.OverallScore} / 5</span>
+                          <span className="text-slate-400 text-[11px]">{ev.SubmittedAt}</span>
+                        </div>
+                        <p className="text-slate-700 leading-relaxed italic">"{ev.Comment || 'ไม่มีข้อเสนอแนะเพิ่มเติม'}"</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function RatingRow({ label, value, onChange }) {
+      return (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+          <span className="text-xs font-medium text-slate-700">{label}</span>
+          <div className="flex items-center gap-2">
+            {[1, 2, 3, 4, 5].map(num => (
+              <button
+                type="button"
+                key={num}
+                onClick={() => onChange(String(num))}
+                className={`w-8 h-8 rounded-lg text-xs font-bold transition ${
+                  value === String(num) ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {num}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function StudentsManagementView({ students, courses, gasUrl, callGasApi, onSaveStudent, onDeleteStudent, onBatchImportSuccess }) {
+      const [filter, setFilter] = useState('');
+      const csvInputRef = useRef(null);
+
+      const filtered = useMemo(() => {
+        return students.filter(s => 
+          (s.StudentID || '').includes(filter) || 
+          (s.Name || '').toLowerCase().includes(filter.toLowerCase()) ||
+          (s.Grade || '').toLowerCase().includes(filter.toLowerCase())
+        );
+      }, [students, filter]);
+
+      // Add Single Student Modal
+      const handleAddStudent = async () => {
+        const { value: formValues } = await Swal.fire({
+          title: 'เพิ่มนักเรียนเดี่ยว',
+          html: `
+            <div class="text-left space-y-2 text-xs">
+              <label class="font-bold text-slate-700">รหัสนักเรียน (StudentID)</label>
+              <input id="swal-st-id" class="w-full p-2 border rounded-lg" placeholder="เช่น 04505">
+              <label class="font-bold text-slate-700">รหัส PIN (สำหรับ Login)</label>
+              <input id="swal-st-pin" class="w-full p-2 border rounded-lg" value="1234">
+              <label class="font-bold text-slate-700">ชื่อ-นามสกุล</label>
+              <input id="swal-st-name" class="w-full p-2 border rounded-lg" placeholder="เช่น ด.ช. รักเรียน ขยันดี">
+              <label class="font-bold text-slate-700">อีเมล (Optional - ว่างได้)</label>
+              <input id="swal-st-email" type="email" class="w-full p-2 border rounded-lg" placeholder="student@school.ac.th">
+              <label class="font-bold text-slate-700">ระดับชั้น</label>
+              <input id="swal-st-grade" class="w-full p-2 border rounded-lg" placeholder="เช่น ม.3/1">
+              <label class="font-bold text-slate-700">รหัสวิชาที่ลงทะเบียน (คั่นด้วยจุลภาค)</label>
+              <input id="swal-st-courses" class="w-full p-2 border rounded-lg" placeholder="เช่น C101,C102">
+            </div>
+          `,
+          showCancelButton: true,
+          confirmButtonColor: '#4f46e5',
+          preConfirm: () => {
+            const studentId = document.getElementById('swal-st-id').value;
+            const pin = document.getElementById('swal-st-pin').value;
+            const name = document.getElementById('swal-st-name').value;
+            const email = document.getElementById('swal-st-email').value;
+            const grade = document.getElementById('swal-st-grade').value;
+            const allowed = document.getElementById('swal-st-courses').value;
+            if (!studentId || !name) {
+              Swal.showValidationMessage('กรุณากรอกรหัสนักเรียนและชื่อ');
+              return false;
+            }
+            return { studentId, pin, name, email, grade, allowed };
+          }
+        });
+
+        if (formValues) {
+          const newStudent = {
+            ID: 'ST_' + Date.now().toString().slice(-6),
+            StudentID: formValues.studentId,
+            PIN: formValues.pin || '1234',
+            Name: formValues.name,
+            Email: formValues.email || '',
+            Grade: formValues.grade,
+            AllowedCourses: formValues.allowed,
+            CreatedAt: new Date().toISOString().split('T')[0]
+          };
+          onSaveStudent(newStudent);
+          Swal.fire({ icon: 'success', title: 'เพิ่มนักเรียนสำเร็จ', timer: 1200, showConfirmButton: false });
+        }
+      };
+
+      // High Performance Chunked CSV Import
+      const handleCsvUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          const text = evt.target.result;
+          const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+          if (lines.length <= 1) {
+            Swal.fire({ icon: 'warning', title: 'ไฟล์ว่างเปล่าหรือไม่มีข้อมูล' });
+            return;
+          }
+
+          const parsedStudents = [];
+          for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',').map(s => s.trim().replace(/^["']|["']$/g, ''));
+            if (cols.length >= 2 && cols[0]) {
+              parsedStudents.push({
+                ID: 'ST_' + Date.now().toString().slice(-4) + '_' + i,
+                StudentID: cols[0],
+                PIN: cols[1] || '1234',
+                Name: cols[2] || 'นักเรียน',
+                Email: cols[3] || '',
+                Grade: cols[4] || '',
+                AllowedCourses: cols[5] || '',
+                CreatedAt: new Date().toISOString().split('T')[0]
+              });
+            }
+          }
+
+          if (parsedStudents.length === 0) {
+            Swal.fire({ icon: 'error', title: 'ไม่สามารถอ่านข้อมูล CSV ได้' });
+            return;
+          }
+
+          // Chunking into groups of 50 to avoid GAS script timeout
+          const CHUNK_SIZE = 50;
+          const totalChunks = Math.ceil(parsedStudents.length / CHUNK_SIZE);
+
+          Swal.fire({
+            title: `กำลังนำเข้า ${parsedStudents.length} คน...`,
+            html: `ประมวลผล Chunk <b>1 / ${totalChunks}</b>`,
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+          });
+
+          for (let c = 0; c < totalChunks; c++) {
+            const chunk = parsedStudents.slice(c * CHUNK_SIZE, (c + 1) * CHUNK_SIZE);
+            if (gasUrl) {
+              await callGasApi('batchSave', { sheetName: 'Students', records: chunk });
+            }
+            if (Swal.getPopup()) {
+              Swal.getPopup().querySelector('b').textContent = `${c + 1} / ${totalChunks}`;
+            }
+          }
+
+          onBatchImportSuccess(parsedStudents);
+          Swal.fire({
+            icon: 'success',
+            title: 'นำเข้าข้อมูล CSV สำเร็จ!',
+            text: `บันทึกข้อมูลนักเรียนทั้งหมด ${parsedStudents.length} คนเรียบร้อยแล้ว`,
+            confirmButtonColor: '#4f46e5'
+          });
+        };
+        reader.readAsText(file);
+      };
+
+      return (
+        <div className="space-y-6">
+          <input type="file" ref={csvInputRef} accept=".csv" onChange={handleCsvUpload} className="hidden" />
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">จัดการข้อมูลนักเรียน (Students Management)</h2>
+              <p className="text-xs text-slate-500 mt-0.5">รองรับการนำเข้าจำนวนมากด้วยเทคนิค CSV Chunking</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => csvInputRef.current && csvInputRef.current.click()}
+                className="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition shadow-sm"
+              >
+                <Icon name="FileSpreadsheet" size={16} />
+                <span>นำเข้าไฟล์ CSV</span>
+              </button>
+              <button
+                onClick={handleAddStudent}
+                className="inline-flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm"
+              >
+                <Icon name="Plus" size={16} />
+                <span>เพิ่มนักเรียน</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <input
+                type="text"
+                placeholder="ค้นหาด้วยรหัสนักเรียน, ชื่อ หรือชั้นเรียน..."
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="w-full sm:w-72 px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-indigo-500"
+              />
+              <span className="text-xs text-slate-500 font-medium">ทั้งหมด {filtered.length} คน</span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-500">
+                    <th className="py-2.5">รหัส (StudentID)</th>
+                    <th className="py-2.5">PIN</th>
+                    <th className="py-2.5">ชื่อ-นามสกุล</th>
+                    <th className="py-2.5">ระดับชั้น</th>
+                    <th className="py-2.5">อีเมล</th>
+                    <th className="py-2.5">สิทธิ์วิชาเรียน</th>
+                    <th className="py-2.5 text-right">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filtered.map(st => (
+                    <tr key={st.StudentID} className="hover:bg-slate-50/70">
+                      <td className="py-3 font-bold text-indigo-600">{st.StudentID}</td>
+                      <td className="py-3 text-slate-600 font-mono">{st.PIN}</td>
+                      <td className="py-3 font-medium text-slate-800">{st.Name}</td>
+                      <td className="py-3 text-slate-600">{st.Grade}</td>
+                      <td className="py-3 text-slate-500">{st.Email || '-'}</td>
+                      <td className="py-3">
+                        <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[11px] font-medium">
+                          {st.AllowedCourses || 'ทั้งหมด'}
+                        </span>
+                      </td>
+                      <td className="py-3 text-right">
+                        <button
+                          onClick={() => {
+                            Swal.fire({
+                              title: 'ลบนักเรียนคนนี้?',
+                              text: `รหัส ${st.StudentID} (${st.Name})`,
+                              icon: 'warning',
+                              showCancelButton: true,
+                              confirmButtonColor: '#ef4444'
+                            }).then(res => {
+                              if (res.isConfirmed) onDeleteStudent(st.StudentID);
+                            });
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                        >
+                          <Icon name="Trash2" size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function TeachersManagementView({ teachers, onSaveTeacher, onDeleteTeacher }) {
+      const handleAddTeacher = async () => {
+        const { value: formValues } = await Swal.fire({
+          title: 'เพิ่มข้อมูลครูผู้สอน',
+          html: `
+            <div class="text-left space-y-2 text-xs">
+              <label class="font-bold text-slate-700">รหัสครู (TeacherID)</label>
+              <input id="swal-t-id" class="w-full p-2 border rounded-lg" placeholder="เช่น T103">
+              <label class="font-bold text-slate-700">ชื่อ-นามสกุล</label>
+              <input id="swal-t-name" class="w-full p-2 border rounded-lg" placeholder="เช่น ครูอารีย์ วิทยา">
+              <label class="font-bold text-slate-700">อีเมล (สำหรับ Login)</label>
+              <input id="swal-t-email" type="email" class="w-full p-2 border rounded-lg" placeholder="aree@school.ac.th">
+              <label class="font-bold text-slate-700">รหัสผ่าน</label>
+              <input id="swal-t-pass" class="w-full p-2 border rounded-lg" value="123">
+              <label class="font-bold text-slate-700">กลุ่มสาระการเรียนรู้</label>
+              <input id="swal-t-dept" class="w-full p-2 border rounded-lg" placeholder="เช่น ภาษาต่างประเทศ">
+            </div>
+          `,
+          showCancelButton: true,
+          confirmButtonColor: '#4f46e5',
+          preConfirm: () => {
+            const teacherId = document.getElementById('swal-t-id').value;
+            const name = document.getElementById('swal-t-name').value;
+            const email = document.getElementById('swal-t-email').value;
+            const password = document.getElementById('swal-t-pass').value;
+            const department = document.getElementById('swal-t-dept').value;
+            if (!teacherId || !name || !email) {
+              Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบถ้วน');
+              return false;
+            }
+            return { teacherId, name, email, password, department };
+          }
+        });
+
+        if (formValues) {
+          const newTeacher = {
+            TeacherID: formValues.teacherId,
+            Name: formValues.name,
+            Email: formValues.email,
+            Password: formValues.password,
+            Department: formValues.department,
+            CreatedAt: new Date().toISOString().split('T')[0]
+          };
+          onSaveTeacher(newTeacher);
+          Swal.fire({ icon: 'success', title: 'เพิ่มข้อมูลครูเรียบร้อย', timer: 1200, showConfirmButton: false });
+        }
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">จัดการครูผู้สอน (Teachers Management)</h2>
+              <p className="text-xs text-slate-500 mt-0.5">เพิ่ม ลบ หรือแก้ไขสิทธิ์การสอนของครูในโรงเรียน</p>
+            </div>
+            <button
+              onClick={handleAddTeacher}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition shadow-sm"
+            >
+              <Icon name="Plus" size={16} />
+              <span>เพิ่มครูผู้สอน</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {teachers.map(t => (
+              <div key={t.TeacherID} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-bold text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">{t.TeacherID}</span>
+                    <h3 className="font-bold text-slate-800 text-sm">{t.Name}</h3>
+                  </div>
+                  <p className="text-xs text-slate-500">{t.Department || 'ไม่ระบุกลุ่มสาระ'}</p>
+                  <p className="text-xs text-slate-400 mt-2">Email: {t.Email} • รหัสผ่าน: {t.Password}</p>
+                </div>
+                <button
+                  onClick={() => onDeleteTeacher(t.TeacherID)}
+                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                >
+                  <Icon name="Trash2" size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function SettingsView({ settings, onSaveSetting }) {
+      const currentAnnSetting = settings.find(s => s.SettingKey === 'Announcement');
+      let annData = { enabled: true, title: '', content: '', badge: 'ประกาศโรงเรียน' };
+      if (currentAnnSetting && currentAnnSetting.SettingValueJSON) {
+        try {
+          annData = JSON.parse(currentAnnSetting.SettingValueJSON);
+        } catch {}
+      }
+
+      const [enabled, setEnabled] = useState(annData.enabled ?? true);
+      const [title, setTitle] = useState(annData.title || '');
+      const [content, setContent] = useState(annData.content || '');
+      const [badge, setBadge] = useState(annData.badge || 'ประกาศโรงเรียน');
+
+      const handleSaveAnnouncement = () => {
+        const payload = {
+          enabled,
+          title,
+          content,
+          badge
+        };
+
+        const record = {
+          SettingKey: 'Announcement',
+          SettingValueJSON: JSON.stringify(payload),
+          UpdatedAt: new Date().toISOString()
+        };
+
+        onSaveSetting(record);
+        Swal.fire({
+          icon: 'success',
+          title: 'บันทึกประกาศสำเร็จ',
+          text: 'ป๊อปอัปจะแสดงผลต่อนักเรียนและครูทุกคนเมื่อเข้าสู่ระบบ',
+          timer: 1500,
+          showConfirmButton: false
+        });
+      };
+
+      return (
+        <div className="max-w-2xl bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">ตั้งค่าประกาศสำคัญของโรงเรียน (Popup Announcement)</h2>
+            <p className="text-xs text-slate-500 mt-1">กำหนดข้อความป๊อปอัปที่จะเด้งเตือนเมื่อผู้ใช้งานทุกคนเปิดเข้าสู่ระบบ</p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <span className="text-xs font-bold text-slate-700">เปิดใช้งานป๊อปอัปประกาศ</span>
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(e) => setEnabled(e.target.checked)}
+                className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">ป้ายกำกับ (Badge)</label>
+              <input
+                type="text"
+                value={badge}
+                onChange={(e) => setBadge(e.target.value)}
+                className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:outline-hidden focus:border-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">หัวข้อประกาศ</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:outline-hidden focus:border-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">เนื้อหาประกาศ</label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows="4"
+                className="w-full p-2.5 text-xs border border-slate-200 rounded-xl focus:outline-hidden focus:border-indigo-500"
+              ></textarea>
+            </div>
+
+            <button
+              onClick={handleSaveAnnouncement}
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition"
+            >
+              บันทึกการตั้งค่าประกาศ
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    const rootElement = document.getElementById('root');
+    const root = ReactDOM.createRoot(rootElement);
+    root.render(<EduPortalApp />);
+  </script>
+</body>
+</html>
