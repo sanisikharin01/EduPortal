@@ -272,7 +272,7 @@
     // --- Main Application Component ---
     function EduPortalApp() {
       const [gasUrl, setGasUrl] = useState(() => {
-        return localStorage.getItem('eduportal_gas_url') || '';
+        return localStorage.getItem('eduportal_gas_url') || 'https://script.google.com/macros/s/AKfycbwyVi8My5UYBC6azaOoBsk-uS9PmWd6gmAU-A0CADk2HlEHa3HIWJyas4vGc8Knb2hb/exec';
       });
 
       const [isSyncing, setIsSyncing] = useState(false);
@@ -948,7 +948,7 @@
         if (role === 'student') {
           const cleanId = studentId.trim();
           const cleanPin = pin.trim();
-          const student = (db.Students || []).find(s => s.StudentID === cleanId);
+          const student = (db.Students || []).find(s => s.StudentID === cleanId || (s.StudentID && s.StudentID.replace(/^0+/, '') === cleanId.replace(/^0+/, '')));
 
           if (!student) {
             Swal.fire({
